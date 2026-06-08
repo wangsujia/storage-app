@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="收纳助手">
 <meta name="theme-color" content="#F2F0EB">
 <title>收纳助手</title>
+<script src="https://unpkg.com/@cloudbase/js-sdk/dist/cloudbase.full.js"></script>
 <style>
 :root {
   --bg: #F2F0EB;
@@ -267,6 +268,34 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
 /* ── Move item sheet ── */
 .move-sheet-list { max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
 
+/* ── Login view ── */
+#view-login { background: var(--bg); display:none; flex-direction:column; align-items:center; justify-content:center; padding: 40px 24px calc(40px + var(--safe-bottom)); }
+#view-login.active { display:flex; }
+.login-logo { font-size:64px; margin-bottom:14px; }
+.login-title { font-size:24px; font-weight:700; margin-bottom:4px; }
+.login-sub { font-size:14px; color:var(--text2); margin-bottom:28px; text-align:center; }
+.login-card { background:var(--card); border-radius:var(--r-card); padding:22px; width:100%; max-width:380px; }
+.login-row { display:flex; gap:8px; margin-bottom:12px; }
+.login-prefix { background:var(--border); border:none; border-radius:var(--r-btn); padding:0 14px; font-size:15px; color:var(--text2); display:flex; align-items:center; flex-shrink:0; }
+.login-input { flex:1; padding:14px; border:1.5px solid var(--border); border-radius:var(--r-btn); font-size:15px; font-family:var(--font); background:transparent; color:var(--text); outline:none; min-width:0; }
+.login-input:focus { border-color:var(--accent); }
+.login-send { background:var(--accent); color:#fff; border:none; border-radius:var(--r-btn); padding:0 14px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; font-family:var(--font); flex-shrink:0; }
+.login-send:disabled { background:var(--border); color:var(--text2); cursor:not-allowed; }
+.login-hint { font-size:12px; color:var(--text2); text-align:center; margin-top:12px; line-height:1.6; }
+.login-user-row { display:flex; align-items:center; gap:10px; padding:10px 0; }
+.login-avatar { width:40px; height:40px; border-radius:50%; background:var(--accent); color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center; }
+.login-user-info { flex:1; }
+.login-user-phone { font-size:15px; font-weight:600; }
+.login-user-sub { font-size:12px; color:var(--text2); margin-top:2px; }
+
+/* ── Invite / Join sheets ── */
+.invite-sheet { position:fixed; bottom:0; left:0; right:0; background:var(--card); border-radius:20px 20px 0 0; padding:20px 24px calc(var(--safe-bottom)+24px); z-index:200; display:none; flex-direction:column; gap:12px; }
+.invite-title { font-size:17px; font-weight:700; }
+.invite-code-box { background:var(--bg); border-radius:14px; padding:20px; text-align:center; }
+.invite-code { font-size:32px; font-weight:700; letter-spacing:6px; color:var(--accent); margin-bottom:6px; }
+.invite-code-hint { font-size:12px; color:var(--text2); }
+.invite-nav-btn { background:none; border:none; font-size:22px; cursor:pointer; padding:4px 8px; color:#fff; }
+
 /* ── Provider tabs ── */
 .provider-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
 .provider-tab { flex: 1; padding: 10px 0; border: 1.5px solid var(--border); border-radius: var(--r-btn); background: transparent; color: var(--text-secondary); font-size: 14px; font-weight: 500; cursor: pointer; }
@@ -274,6 +303,25 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
 </style>
 </head>
 <body>
+
+<!-- ───────────── Login View ───────────── -->
+<div id="view-login" class="view">
+  <div class="login-logo">🏠</div>
+  <div class="login-title">收纳助手</div>
+  <div class="login-sub">用手机号登录<br>数据云端同步，多设备共享</div>
+  <div class="login-card">
+    <div class="login-row">
+      <div class="login-prefix">+86</div>
+      <input id="login-phone" class="login-input" type="tel" placeholder="手机号" maxlength="11" autocomplete="tel">
+      <button id="login-send-btn" class="login-send" onclick="sendLoginCode()">发送验证码</button>
+    </div>
+    <div class="login-row">
+      <input id="login-code" class="login-input" type="number" placeholder="6 位验证码" autocomplete="one-time-code">
+    </div>
+    <button class="btn-primary" onclick="doLogin()">登录 / 注册</button>
+    <div class="login-hint">手机号即账号，首次使用自动注册<br>🔒 仅用于身份验证</div>
+  </div>
+</div>
 
 <!-- ───────────── Config View ───────────── -->
 <div id="view-config" class="view">
@@ -306,7 +354,19 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
     </div>
 
     <div class="config-hint" style="margin-top:12px">🔒 所有 Key 仅存储在您的设备本地</div>
-    <button class="btn-primary" onclick="saveApiKey()">开始使用</button>
+    <button class="btn-primary" onclick="saveApiKey()">保存</button>
+  </div>
+  <div class="config-card" id="user-info-card" style="margin-top:0">
+    <div class="config-label">当前账号</div>
+    <div class="login-user-row">
+      <div class="login-avatar">👤</div>
+      <div class="login-user-info">
+        <div class="login-user-phone" id="config-user-phone">未登录</div>
+        <div class="login-user-sub" id="config-sync-status">数据仅存本地</div>
+      </div>
+    </div>
+    <button class="btn-primary" id="config-login-btn" onclick="navigate('login')" style="background:var(--accent2)">登录 / 注册</button>
+    <button class="btn-primary" id="config-logout-btn" onclick="doLogout()" style="display:none;background:var(--danger)">退出登录</button>
   </div>
 </div>
 
@@ -337,6 +397,7 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
   <div class="nav-bar">
     <button class="nav-back" id="space-back-btn" onclick="spaceGoBack()">‹ 返回</button>
     <div class="nav-title" id="space-nav-title"></div>
+    <button class="invite-nav-btn" id="invite-nav-btn" onclick="showInviteSheet(currentSpaceId)" title="邀请协同" style="display:none">👥</button>
     <button class="nav-action" onclick="showSpaceOptions()">···</button>
   </div>
   <div class="breadcrumb" id="space-breadcrumb"></div>
@@ -476,6 +537,32 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
     <span class="sheet-btn-icon">✏️</span>
     <span class="sheet-btn-label">手动添加物品</span>
   </div>
+  <div class="sheet-btn" id="join-space-btn" onclick="closeActionSheet(); showJoinSheet()" style="display:none">
+    <span class="sheet-btn-icon">🔗</span>
+    <span class="sheet-btn-label">加入他人的空间</span>
+  </div>
+</div>
+
+<!-- ───────────── Invite Sheet ───────────── -->
+<div class="invite-sheet" id="invite-sheet">
+  <div class="invite-title">👥 邀请协同管理 · <span id="invite-space-name"></span></div>
+  <div class="invite-code-box">
+    <div class="invite-code" id="invite-code-display">------</div>
+    <div class="invite-code-hint">让对方在 App 里输入此邀请码加入空间</div>
+  </div>
+  <button class="btn-primary" onclick="copyInviteCode()">复制邀请码</button>
+  <div class="config-hint" id="invite-collab-count"></div>
+  <button class="btn-primary" onclick="closeInviteSheet()" style="background:var(--border);color:var(--text)">关闭</button>
+</div>
+
+<!-- ───────────── Join Space Sheet ───────────── -->
+<div class="invite-sheet" id="join-sheet">
+  <div class="invite-title">🔗 加入他人的空间</div>
+  <div class="login-row">
+    <input id="join-code-input" class="login-input" type="text" placeholder="输入 6 位邀请码" maxlength="6" style="text-transform:uppercase;letter-spacing:4px;font-size:18px;text-align:center">
+  </div>
+  <button class="btn-primary" onclick="joinSpaceByCode()">加入空间</button>
+  <button class="btn-primary" onclick="closeJoinSheet()" style="background:var(--border);color:var(--text)">取消</button>
 </div>
 
 <!-- ───────────── Add Space Dialog ───────────── -->
@@ -513,6 +600,14 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
 // ═══════════════════════════════════════
 // DATA LAYER
 // ═══════════════════════════════════════
+const TCB_ENV = 'storage-app-d3gdaynmgb83ecd93';
+const COL_SPACES = 'spaces';
+const COL_ITEMS = 'items';
+
+let tcbApp = null, tcbAuth = null, tcbDb = null;
+let currentUser = null;
+let cloudSyncTimer = null;
+
 const STORAGE_KEY = 'storage_app_data';
 const API_KEY_KEY = 'storage_app_api_key';
 const API_BASE_KEY = 'storage_app_api_base';
@@ -539,6 +634,7 @@ function generateId() {
 
 function saveState() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+  scheduleSyncToCloud();
 }
 
 function loadState() {
@@ -612,6 +708,230 @@ function totalItemCount() { return Object.keys(state.items).length; }
 function totalSpaceCount() { return Object.values(state.spaces).filter(s => s.id !== UNORG_ID).length; }
 
 // ═══════════════════════════════════════
+// TCB CLOUD BACKEND
+// ═══════════════════════════════════════
+function initTCB() {
+  try {
+    tcbApp = cloudbase.init({ env: TCB_ENV });
+    tcbAuth = tcbApp.auth({ persistence: 'local' });
+    tcbDb = tcbApp.database();
+  } catch(e) { console.warn('TCB init failed', e); }
+}
+
+async function checkLoginState() {
+  if (!tcbAuth) return false;
+  try {
+    const ls = await tcbAuth.getLoginState();
+    if (ls && ls.user) { currentUser = ls.user; return true; }
+  } catch(e) {}
+  return false;
+}
+
+// ── Auth ──
+let smsCooldownTimer = null;
+async function sendLoginCode() {
+  const phone = document.getElementById('login-phone').value.trim();
+  if (!/^1[3-9]\d{9}$/.test(phone)) { showToast('请输入正确的手机号'); return; }
+  const btn = document.getElementById('login-send-btn');
+  btn.disabled = true;
+  try {
+    await tcbAuth.sendPhoneCode('+86' + phone);
+    showToast('验证码已发送');
+    let sec = 60;
+    smsCooldownTimer = setInterval(() => {
+      btn.textContent = sec-- + 's';
+      if (sec < 0) {
+        clearInterval(smsCooldownTimer);
+        btn.disabled = false;
+        btn.textContent = '发送验证码';
+      }
+    }, 1000);
+  } catch(e) {
+    btn.disabled = false;
+    showToast('发送失败：' + (e.message || '请稍后重试'));
+  }
+}
+
+async function doLogin() {
+  const phone = '+86' + document.getElementById('login-phone').value.trim();
+  const code = document.getElementById('login-code').value.trim();
+  if (!code) { showToast('请输入验证码'); return; }
+  try {
+    showToast('登录中…');
+    await tcbAuth.signInWithPhoneCode(phone, code);
+    const ls = await tcbAuth.getLoginState();
+    currentUser = ls.user;
+    showToast('✅ 登录成功');
+    const loaded = await loadFromCloud();
+    if (!loaded) await syncToCloud(); // 新用户，上传本地数据
+    document.getElementById('join-space-btn').style.display = '';
+    navigate('home');
+  } catch(e) {
+    showToast('登录失败：' + (e.message || '验证码错误'));
+  }
+}
+
+async function doLogout() {
+  if (!confirm('确认退出登录？')) return;
+  await tcbAuth.signOut();
+  currentUser = null;
+  document.getElementById('join-space-btn').style.display = 'none';
+  navigate('config');
+  renderConfigUserInfo();
+}
+
+function renderConfigUserInfo() {
+  const phoneEl = document.getElementById('config-user-phone');
+  const subEl = document.getElementById('config-sync-status');
+  const loginBtn = document.getElementById('config-login-btn');
+  const logoutBtn = document.getElementById('config-logout-btn');
+  if (currentUser) {
+    phoneEl.textContent = currentUser.phoneNumber || currentUser.uid?.slice(0, 8) + '…';
+    subEl.textContent = '☁️ 数据已同步到云端';
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = '';
+  } else {
+    phoneEl.textContent = '未登录';
+    subEl.textContent = '数据仅存本地，登录后可同步';
+    loginBtn.style.display = '';
+    logoutBtn.style.display = 'none';
+  }
+}
+
+// ── Cloud sync ──
+async function loadFromCloud() {
+  if (!currentUser || !tcbDb) return false;
+  try {
+    const uid = currentUser.uid;
+    const _ = tcbDb.command;
+    const spacesRes = await tcbDb.collection(COL_SPACES)
+      .where(_.or([{ ownerId: uid }, { collaborators: _.elemMatch(_.eq(uid)) }]))
+      .limit(500).get();
+
+    state.spaces = {};
+    const spaceIds = [];
+    for (const sp of (spacesRes.data || [])) {
+      const s = { ...sp, id: sp._id };
+      delete s._id;
+      state.spaces[s.id] = s;
+      spaceIds.push(s.id);
+    }
+    state.items = {};
+    if (spaceIds.length > 0) {
+      const itemsRes = await tcbDb.collection(COL_ITEMS)
+        .where({ spaceId: _.in(spaceIds) })
+        .limit(2000).get();
+      for (const it of (itemsRes.data || [])) {
+        const item = { ...it, id: it._id };
+        delete item._id;
+        state.items[item.id] = item;
+      }
+    }
+    ensureUnorganizedSpace();
+    saveState();
+    return spaceIds.length > 0 || true;
+  } catch(e) {
+    console.warn('loadFromCloud error', e);
+    return false;
+  }
+}
+
+function scheduleSyncToCloud() {
+  if (!currentUser || !tcbDb) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(syncToCloud, 3000);
+}
+
+async function syncToCloud() {
+  if (!currentUser || !tcbDb) return;
+  const uid = currentUser.uid;
+  try {
+    for (const sp of Object.values(state.spaces)) {
+      await tcbDb.collection(COL_SPACES).doc(sp.id).set({
+        ...sp, _id: undefined,
+        ownerId: sp.ownerId || uid,
+        collaborators: sp.collaborators || [],
+        updatedAt: new Date(),
+      });
+    }
+    for (const it of Object.values(state.items)) {
+      const { image_thumb, ...itNoThumb } = it;
+      await tcbDb.collection(COL_ITEMS).doc(it.id).set({
+        ...itNoThumb, _id: undefined,
+        ownerId: it.ownerId || uid,
+        updatedAt: new Date(),
+      });
+    }
+  } catch(e) { console.warn('syncToCloud error', e); }
+}
+
+// ── Collaboration ──
+function generateShareCode() {
+  return Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+}
+
+function showInviteSheet(spaceId) {
+  if (!currentUser) { showToast('请先登录'); return; }
+  const sp = state.spaces[spaceId];
+  if (!sp) return;
+  if (!sp.shareCode) { sp.shareCode = generateShareCode(); saveState(); }
+  document.getElementById('invite-code-display').textContent = sp.shareCode;
+  document.getElementById('invite-space-name').textContent = sp.emoji + ' ' + sp.name;
+  const n = (sp.collaborators || []).length;
+  document.getElementById('invite-collab-count').textContent = n ? `已有 ${n} 位协同成员` : '暂无协同成员';
+  document.getElementById('invite-sheet').style.display = 'flex';
+  document.getElementById('overlay').style.display = 'block';
+  document.getElementById('overlay').onclick = closeInviteSheet;
+}
+
+function closeInviteSheet() {
+  document.getElementById('invite-sheet').style.display = 'none';
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('overlay').onclick = closeActionSheet;
+}
+
+function copyInviteCode() {
+  const code = document.getElementById('invite-code-display').textContent;
+  navigator.clipboard?.writeText(code).then(() => showToast('邀请码已复制'))
+    .catch(() => showToast('邀请码：' + code));
+}
+
+function showJoinSheet() {
+  if (!currentUser) { showToast('请先登录'); navigate('login'); return; }
+  document.getElementById('join-code-input').value = '';
+  document.getElementById('join-sheet').style.display = 'flex';
+  document.getElementById('overlay').style.display = 'block';
+  document.getElementById('overlay').onclick = closeJoinSheet;
+}
+
+function closeJoinSheet() {
+  document.getElementById('join-sheet').style.display = 'none';
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('overlay').onclick = closeActionSheet;
+}
+
+async function joinSpaceByCode() {
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (code.length < 4) { showToast('请输入邀请码'); return; }
+  showToast('查找中…');
+  try {
+    const { data } = await tcbDb.collection(COL_SPACES).where({ shareCode: code }).limit(1).get();
+    if (!data || !data.length) { showToast('邀请码无效'); return; }
+    const sp = data[0];
+    if (sp.ownerId === currentUser.uid) { showToast('这是你自己的空间'); return; }
+    const collabs = sp.collaborators || [];
+    if (collabs.includes(currentUser.uid)) { showToast('你已是协同成员'); return; }
+    await tcbDb.collection(COL_SPACES).doc(sp._id).update({
+      collaborators: tcbDb.command.push(currentUser.uid),
+    });
+    showToast('✅ 加入成功！');
+    closeJoinSheet();
+    await loadFromCloud();
+    navigate('home');
+  } catch(e) { showToast('失败：' + (e.message || '')); }
+}
+
+// ═══════════════════════════════════════
 // ROUTING
 // ═══════════════════════════════════════
 function navigate(view, params = {}) {
@@ -620,26 +940,33 @@ function navigate(view, params = {}) {
 
   const bottomBar = document.getElementById('bottom-bar');
   const fab = document.getElementById('fab');
-  const hideBottom = ['scan', 'config'].includes(view);
+  const hideBottom = ['scan', 'config', 'login'].includes(view);
   bottomBar.style.display = hideBottom ? 'none' : '';
-  fab.style.display = ['scan', 'config', 'assign', 'manual'].includes(view) ? 'none' : '';
+  fab.style.display = ['scan', 'config', 'assign', 'manual', 'login'].includes(view) ? 'none' : '';
 
   if (view === 'home') renderHome();
+  else if (view === 'login') {
+    document.getElementById('login-phone').value = '';
+    document.getElementById('login-code').value = '';
+  }
   else if (view === 'config') {
     const p = getProvider();
     switchProviderTab(p);
     document.getElementById('api-key-input').value = getApiKey();
     document.getElementById('api-base-input').value = getApiBase();
     document.getElementById('qwen-key-input').value = getQwenKey();
+    renderConfigUserInfo();
+  }
+  else if (view === 'space') {
+    document.getElementById('invite-nav-btn').style.display = currentUser ? '' : 'none';
+    renderSpaceDetail(params.spaceId);
   }
   else if (view === 'scan') {
-    // 每次进入重置队列和预览
     scanQueue = [];
     document.getElementById('scan-preview-img').style.display = 'none';
     document.getElementById('scan-placeholder').style.display = 'block';
     renderScanQueue();
   }
-  else if (view === 'space') renderSpaceDetail(params.spaceId);
   else if (view === 'search') renderSearch('');
   else if (view === 'assign') renderAssign();
   else if (view === 'item') renderItemDetail(params.itemId);
@@ -1725,14 +2052,20 @@ function importData() {
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   loadState();
   ensureUnorganizedSpace();
-  const key = getApiKey() || getQwenKey();
-  if (!key) {
-    navigate('config');
-  } else {
+  initTCB();
+
+  const loggedIn = await checkLoginState();
+  if (loggedIn) {
+    document.getElementById('join-space-btn').style.display = '';
+    await loadFromCloud();
     navigate('home');
+  } else {
+    const hasKey = getApiKey() || getQwenKey();
+    // 未登录但有 AI Key 的老用户：直接进首页，引导登录
+    navigate(hasKey ? 'home' : 'config');
   }
   window.addEventListener('popstate', closeActionSheet);
 });
