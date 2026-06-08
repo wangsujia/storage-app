@@ -272,6 +272,11 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
 
 /* ── Move item sheet ── */
 .move-sheet-list { max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
+
+/* ── Provider tabs ── */
+.provider-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+.provider-tab { flex: 1; padding: 10px 0; border: 1.5px solid var(--border); border-radius: var(--r-btn); background: transparent; color: var(--text-secondary); font-size: 14px; font-weight: 500; cursor: pointer; }
+.provider-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -282,14 +287,31 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
   <div class="config-title">收纳助手</div>
   <div class="config-subtitle">智能家庭收纳管理<br>让每件物品都有家</div>
   <div class="config-card">
-    <div class="config-label">API Key</div>
-    <input id="api-key-input" class="config-input" type="password" placeholder="sk-..." autocomplete="off">
-    <div class="config-label" style="margin-top:14px">API 地址（中转可修改）</div>
-    <input id="api-base-input" class="config-input" type="url" placeholder="https://api.anthropic.com" autocomplete="off">
-    <div class="config-hint">
-      🔒 Key 和地址仅存储在您的设备本地，不会上传到任何服务器。<br>
-      官方地址：<a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+    <div class="provider-tabs">
+      <button id="tab-claude" class="provider-tab active" onclick="switchProviderTab('claude')">Claude</button>
+      <button id="tab-qwen" class="provider-tab" onclick="switchProviderTab('qwen')">通义千问</button>
     </div>
+
+    <!-- Claude 配置 -->
+    <div id="section-claude">
+      <div class="config-label">API Key</div>
+      <input id="api-key-input" class="config-input" type="password" placeholder="sk-ant-api03-..." autocomplete="off">
+      <div class="config-label" style="margin-top:14px">API 地址（中转可修改）</div>
+      <input id="api-base-input" class="config-input" type="url" placeholder="https://api.anthropic.com" autocomplete="off">
+      <div class="config-hint">获取 Key：<a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
+    </div>
+
+    <!-- 通义千问配置 -->
+    <div id="section-qwen" style="display:none">
+      <div class="config-label">通义千问 API Key</div>
+      <input id="qwen-key-input" class="config-input" type="password" placeholder="sk-..." autocomplete="off">
+      <div class="config-hint">
+        获取 Key：<a href="https://dashscope.console.aliyun.com/apiKey" target="_blank">dashscope.console.aliyun.com</a><br>
+        国内直连，无需中转。
+      </div>
+    </div>
+
+    <div class="config-hint" style="margin-top:12px">🔒 所有 Key 仅存储在您的设备本地</div>
     <button class="btn-primary" onclick="saveApiKey()">开始使用</button>
   </div>
 </div>
@@ -508,6 +530,10 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
 const STORAGE_KEY = 'storage_app_data';
 const API_KEY_KEY = 'storage_app_api_key';
 const API_BASE_KEY = 'storage_app_api_base';
+const API_PROVIDER_KEY = 'storage_app_provider';
+const QWEN_KEY_KEY = 'storage_app_qwen_key';
+const QWEN_ENDPOINT = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+const QWEN_MODEL = 'qwen-vl-plus';
 const ALL_TAGS = ['数码','电子','书籍','文具','服装','食品','药品','护肤','工具','运动','玩具','家居','厨具','餐具','装饰'];
 const SPACE_EMOJIS = ['🏠','🛋️','🛏️','🍳','🛁','🚗','📚','🗄️','👔','🧸','🌿','💊','🔧','🎮','📦','🗂️','🪴','🧴'];
 
@@ -538,12 +564,30 @@ function loadState() {
 
 function getApiKey() { return localStorage.getItem(API_KEY_KEY) || ''; }
 function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || 'https://api.anthropic.com').replace(/\/$/, ''); }
+function getProvider() { return localStorage.getItem(API_PROVIDER_KEY) || 'claude'; }
+function getQwenKey() { return localStorage.getItem(QWEN_KEY_KEY) || ''; }
+
+function switchProviderTab(p) {
+  document.getElementById('tab-claude').classList.toggle('active', p === 'claude');
+  document.getElementById('tab-qwen').classList.toggle('active', p === 'qwen');
+  document.getElementById('section-claude').style.display = p === 'claude' ? '' : 'none';
+  document.getElementById('section-qwen').style.display = p === 'qwen' ? '' : 'none';
+}
+
 function saveApiKey() {
-  const k = document.getElementById('api-key-input').value.trim();
-  if (!k) { showToast('请输入 API Key'); return; }
-  const b = document.getElementById('api-base-input').value.trim();
-  localStorage.setItem(API_KEY_KEY, k);
-  localStorage.setItem(API_BASE_KEY, b || 'https://api.anthropic.com');
+  const provider = document.getElementById('tab-qwen').classList.contains('active') ? 'qwen' : 'claude';
+  if (provider === 'qwen') {
+    const k = document.getElementById('qwen-key-input').value.trim();
+    if (!k) { showToast('请输入通义千问 API Key'); return; }
+    localStorage.setItem(QWEN_KEY_KEY, k);
+  } else {
+    const k = document.getElementById('api-key-input').value.trim();
+    if (!k) { showToast('请输入 API Key'); return; }
+    const b = document.getElementById('api-base-input').value.trim();
+    localStorage.setItem(API_KEY_KEY, k);
+    localStorage.setItem(API_BASE_KEY, b || 'https://api.anthropic.com');
+  }
+  localStorage.setItem(API_PROVIDER_KEY, provider);
   navigate('home');
 }
 
@@ -594,8 +638,11 @@ function navigate(view, params = {}) {
 
   if (view === 'home') renderHome();
   else if (view === 'config') {
+    const p = getProvider();
+    switchProviderTab(p);
     document.getElementById('api-key-input').value = getApiKey();
     document.getElementById('api-base-input').value = getApiBase();
+    document.getElementById('qwen-key-input').value = getQwenKey();
   }
   else if (view === 'space') renderSpaceDetail(params.spaceId);
   else if (view === 'search') renderSearch('');
@@ -1261,16 +1308,19 @@ function submitManualItem() {
 // ═══════════════════════════════════════
 // CLAUDE API
 // ═══════════════════════════════════════
+async function callVLM(systemPrompt, userContent) {
+  return getProvider() === 'qwen'
+    ? callQwen(systemPrompt, userContent)
+    : callClaude(systemPrompt, userContent);
+}
+
 async function callClaude(systemPrompt, userContent) {
   const key = getApiKey();
-  if (!key) throw new Error('请先设置 API Key');
-
+  if (!key) throw new Error('请先设置 Claude API Key');
   const base = getApiBase();
   const isRelay = base !== 'https://api.anthropic.com';
-
   let res;
   if (isRelay) {
-    // 中转服务：浏览器直连，避免经过 Vercel（美国服务器访问国内中转不稳定）
     res = await fetch(`${base}/v1/messages`, {
       method: 'POST',
       headers: {
@@ -1287,20 +1337,61 @@ async function callClaude(systemPrompt, userContent) {
       }),
     });
   } else {
-    // 官方 API：走 Vercel 代理解决 CORS
     res = await fetch('/api/claude', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ apiKey: key, apiBase: base, systemPrompt, userContent }),
     });
   }
-
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error?.message || `HTTP ${res.status}`);
   }
   const data = await res.json();
   const text = data.content?.[0]?.text || '';
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('AI 返回格式错误');
+  return JSON.parse(match[0]);
+}
+
+async function callQwen(systemPrompt, userContent) {
+  const key = getQwenKey();
+  if (!key) throw new Error('请先设置通义千问 API Key');
+
+  // 将 Anthropic 格式的 content 转换为 OpenAI 格式
+  let msgContent;
+  if (Array.isArray(userContent)) {
+    msgContent = userContent.map(item => {
+      if (item.type === 'image') {
+        return { type: 'image_url', image_url: { url: `data:${item.source.media_type};base64,${item.source.data}` } };
+      }
+      return { type: 'text', text: item.text };
+    });
+  } else {
+    msgContent = userContent;
+  }
+
+  const res = await fetch(QWEN_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: QWEN_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: msgContent },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content || '';
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('AI 返回格式错误');
   return JSON.parse(match[0]);
@@ -1324,7 +1415,7 @@ async function identifyItem(base64) {
 
 tags 从以下类别选择（可多选）：数码、电子、书籍、文具、服装、食品、药品、护肤、工具、运动、玩具、家居、厨具、餐具、装饰`;
 
-  return callClaude(systemPrompt, [
+  return callVLM(systemPrompt, [
     { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
     { type: 'text', text: '请识别这个物品' },
   ]);
@@ -1349,7 +1440,7 @@ async function recommendSpace(item, spacesList) {
     path: getSpacePath(sp.id).map(p => p.name).join(' > '),
   }));
 
-  return callClaude(systemPrompt,
+  return callVLM(systemPrompt,
     `物品信息：${JSON.stringify(item)}\n\n现有空间：${JSON.stringify(spacesInfo)}`
   );
 }
@@ -1367,7 +1458,7 @@ async function searchByPhoto(base64) {
   "match_item_ids": ["最可能匹配的已有物品ID列表，按相似度排序，最多3个"]
 }`;
 
-  return callClaude(systemPrompt, [
+  return callVLM(systemPrompt, [
     { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
     { type: 'text', text: `已有物品列表：${JSON.stringify(itemsList)}\n请找出最相似的物品ID` },
   ]);
