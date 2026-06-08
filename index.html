@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="收纳助手">
 <meta name="theme-color" content="#F2F0EB">
 <title>收纳助手</title>
-<script src="https://unpkg.com/@cloudbase/js-sdk/dist/cloudbase.full.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@cloudbase/js-sdk/dist/cloudbase.full.js"></script>
 <style>
 :root {
   --bg: #F2F0EB;
@@ -319,6 +319,7 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
       <input id="login-code" class="login-input" type="number" placeholder="6 位验证码" autocomplete="one-time-code">
     </div>
     <button class="btn-primary" onclick="doLogin()">登录 / 注册</button>
+    <div id="login-error" style="color:#FF3B30;font-size:13px;margin-top:10px;text-align:center;display:none"></div>
     <div class="login-hint">手机号即账号，首次使用自动注册<br>🔒 仅用于身份验证</div>
   </div>
 </div>
@@ -712,10 +713,22 @@ function totalSpaceCount() { return Object.values(state.spaces).filter(s => s.id
 // ═══════════════════════════════════════
 function initTCB() {
   try {
+    if (typeof cloudbase === 'undefined') throw new Error('SDK未加载，请检查网络后刷新');
     tcbApp = cloudbase.init({ env: TCB_ENV });
     tcbAuth = tcbApp.auth({ persistence: 'local' });
     tcbDb = tcbApp.database();
-  } catch(e) { console.warn('TCB init failed', e); }
+    console.log('[TCB] 初始化成功');
+  } catch(e) {
+    console.warn('[TCB] init failed:', e);
+    setTimeout(() => showLoginError('云服务初始化失败：' + e.message), 500);
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
 }
 
 async function checkLoginState() {
@@ -730,12 +743,22 @@ async function checkLoginState() {
 // ── Auth ──
 let smsCooldownTimer = null;
 async function sendLoginCode() {
+  showLoginError('');
+  if (!tcbAuth) {
+    showLoginError('云服务未初始化，请刷新页面重试（可能是SDK加载失败）');
+    return;
+  }
   const phone = document.getElementById('login-phone').value.trim();
-  if (!/^1[3-9]\d{9}$/.test(phone)) { showToast('请输入正确的手机号'); return; }
+  if (!/^1[3-9]\d{9}$/.test(phone)) {
+    showLoginError('请输入正确的11位手机号');
+    return;
+  }
   const btn = document.getElementById('login-send-btn');
   btn.disabled = true;
+  btn.textContent = '发送中…';
   try {
     await tcbAuth.sendPhoneCode('+86' + phone);
+    showLoginError('');
     showToast('验证码已发送');
     let sec = 60;
     smsCooldownTimer = setInterval(() => {
@@ -748,26 +771,33 @@ async function sendLoginCode() {
     }, 1000);
   } catch(e) {
     btn.disabled = false;
-    showToast('发送失败：' + (e.message || '请稍后重试'));
+    btn.textContent = '发送验证码';
+    showLoginError('发送失败：' + (e.message || e.code || '请确认已在TCB控制台开启手机号登录'));
   }
 }
 
 async function doLogin() {
+  showLoginError('');
+  if (!tcbAuth) {
+    showLoginError('云服务未初始化，请刷新页面');
+    return;
+  }
   const phone = '+86' + document.getElementById('login-phone').value.trim();
   const code = document.getElementById('login-code').value.trim();
-  if (!code) { showToast('请输入验证码'); return; }
+  if (!code) { showLoginError('请输入验证码'); return; }
   try {
-    showToast('登录中…');
+    showLoginError('登录中…');
     await tcbAuth.signInWithPhoneCode(phone, code);
     const ls = await tcbAuth.getLoginState();
     currentUser = ls.user;
+    showLoginError('');
     showToast('✅ 登录成功');
     const loaded = await loadFromCloud();
-    if (!loaded) await syncToCloud(); // 新用户，上传本地数据
+    if (!loaded) await syncToCloud();
     document.getElementById('join-space-btn').style.display = '';
     navigate('home');
   } catch(e) {
-    showToast('登录失败：' + (e.message || '验证码错误'));
+    showLoginError('登录失败：' + (e.message || e.code || '验证码错误'));
   }
 }
 
