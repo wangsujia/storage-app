@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="收纳助手">
+<meta name="theme-color" content="#F2F0EB">
+<title>收纳助手</title>
+<style>
+:root {
+  --bg: #F2F0EB;
+  --card: #FFFFFF;
+  --text: #1C1C1E;
+  --text2: #6C6C70;
+  --accent: #007AFF;
+  --accent2: #34C759;
+  --danger: #FF3B30;
+  --border: rgba(0,0,0,0.08);
+  --r-card: 18px;
+  --r-btn: 13px;
+  --r-tag: 10px;
+  --font: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); font-family: var(--font); color: var(--text); overflow: hidden; }
+
+/* ── Views ── */
+.view { display: none; position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; background: var(--bg); }
+.view.active { display: block; }
+
+/* ── Config view ── */
+#view-config {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 24px; min-height: 100%;
+}
+.config-logo { font-size: 64px; margin-bottom: 16px; }
+.config-title { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.config-subtitle { font-size: 15px; color: var(--text2); text-align: center; margin-bottom: 40px; line-height: 1.5; }
+.config-card { background: var(--card); border-radius: var(--r-card); padding: 24px; width: 100%; max-width: 380px; }
+.config-label { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.config-input { width: 100%; border: 1.5px solid var(--border); border-radius: var(--r-btn); padding: 12px 14px; font-size: 15px; font-family: var(--font); background: var(--bg); color: var(--text); outline: none; }
+.config-input:focus { border-color: var(--accent); }
+.config-hint { font-size: 12px; color: var(--text2); margin-top: 8px; line-height: 1.4; }
+.config-hint a { color: var(--accent); text-decoration: none; }
+.btn-primary { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: var(--r-btn); padding: 14px; font-size: 16px; font-weight: 600; font-family: var(--font); cursor: pointer; margin-top: 16px; }
+.btn-primary:active { opacity: 0.8; }
+
+/* ── Top nav bar ── */
+.nav-bar {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(242,240,235,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  padding: calc(var(--safe-top) + 8px) 20px 12px;
+  display: flex; align-items: center; gap: 12px;
+}
+.nav-bar .nav-back { font-size: 17px; color: var(--accent); background: none; border: none; padding: 4px 0; cursor: pointer; font-family: var(--font); display: flex; align-items: center; gap: 4px; }
+.nav-bar .nav-title { font-size: 17px; font-weight: 600; flex: 1; }
+.nav-bar .nav-action { color: var(--accent); background: none; border: none; font-size: 15px; font-family: var(--font); cursor: pointer; }
+
+/* ── Breadcrumb ── */
+.breadcrumb { display: flex; align-items: center; gap: 4px; padding: 0 20px 12px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.breadcrumb::-webkit-scrollbar { display: none; }
+.breadcrumb-item { font-size: 13px; color: var(--accent); cursor: pointer; }
+.breadcrumb-sep { font-size: 13px; color: var(--text2); }
+.breadcrumb-item.current { color: var(--text2); cursor: default; }
+
+/* ── Home view ── */
+#view-home { padding-bottom: calc(var(--safe-bottom) + 100px); }
+.home-header { padding: calc(var(--safe-top) + 20px) 20px 20px; }
+.home-greeting { font-size: 15px; color: var(--text2); margin-bottom: 4px; }
+.home-title { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+.home-subtitle { font-size: 14px; color: var(--text2); }
+
+.stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 20px 20px; }
+.stat-card { background: var(--card); border-radius: var(--r-card); padding: 16px 18px; }
+.stat-num { font-size: 32px; font-weight: 700; }
+.stat-label { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+.section-label { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; padding: 0 20px 10px; }
+
+.space-list { padding: 0 20px; display: flex; flex-direction: column; gap: 12px; }
+.space-card { background: var(--card); border-radius: var(--r-card); padding: 18px 18px 14px; cursor: pointer; user-select: none; transition: transform 0.1s; }
+.space-card:active { transform: scale(0.98); }
+.space-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.space-card-emoji { font-size: 32px; }
+.space-card-info { flex: 1; }
+.space-card-name { font-size: 17px; font-weight: 600; }
+.space-card-count { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.space-card-arrow { font-size: 16px; color: var(--text2); }
+.space-card-children { display: flex; flex-wrap: wrap; gap: 6px; }
+.space-child-tag { background: var(--bg); border-radius: 20px; padding: 4px 10px; font-size: 12px; color: var(--text2); }
+
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+.empty-emoji { font-size: 48px; margin-bottom: 12px; }
+.empty-text { font-size: 16px; }
+.empty-hint { font-size: 14px; margin-top: 6px; }
+
+/* ── Space detail view ── */
+#view-space { padding-bottom: calc(var(--safe-bottom) + 100px); }
+
+.subspace-scroll { padding: 0 20px 20px; overflow-x: auto; display: flex; gap: 10px; scrollbar-width: none; }
+.subspace-scroll::-webkit-scrollbar { display: none; }
+.subspace-chip { background: var(--card); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 80px; cursor: pointer; flex-shrink: 0; }
+.subspace-chip:active { opacity: 0.7; }
+.subspace-chip-emoji { font-size: 24px; }
+.subspace-chip-name { font-size: 12px; font-weight: 500; white-space: nowrap; max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+.subspace-chip-count { font-size: 11px; color: var(--text2); }
+.subspace-add { background: var(--bg); border: 2px dashed var(--border); }
+
+.items-grid { padding: 0 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.item-card { background: var(--card); border-radius: var(--r-card); padding: 14px; cursor: pointer; user-select: none; }
+.item-card:active { transform: scale(0.97); }
+.item-card-thumb { width: 100%; aspect-ratio: 1; border-radius: 12px; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 36px; margin-bottom: 10px; overflow: hidden; }
+.item-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.item-card-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-card-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.tags-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.tag { background: var(--bg); border-radius: var(--r-tag); padding: 2px 8px; font-size: 11px; color: var(--text2); }
+
+/* ── FAB & Action Sheet ── */
+.fab { position: fixed; right: 20px; bottom: calc(var(--safe-bottom) + 80px); width: 56px; height: 56px; border-radius: 28px; background: var(--accent); color: #fff; font-size: 28px; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(0,122,255,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; transition: transform 0.2s; }
+.fab:active { transform: scale(0.92); }
+.fab.open { transform: rotate(45deg); }
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.overlay.active { opacity: 1; pointer-events: auto; }
+
+.action-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-radius: 24px 24px 0 0; padding: 12px 20px calc(var(--safe-bottom) + 20px); z-index: 300; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); }
+.action-sheet.active { transform: translateY(0); }
+.sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+.sheet-title { font-size: 13px; font-weight: 600; color: var(--text2); text-align: center; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+.sheet-btn { display: flex; align-items: center; gap: 14px; padding: 16px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.sheet-btn:last-of-type { border-bottom: none; }
+.sheet-btn:active { opacity: 0.6; }
+.sheet-btn-icon { font-size: 22px; width: 36px; text-align: center; }
+.sheet-btn-label { font-size: 17px; }
+
+/* ── Scan view ── */
+#view-scan { background: #000; display: none; flex-direction: column; }
+#view-scan.active { display: flex; }
+.scan-header { padding: calc(var(--safe-top) + 16px) 20px 16px; display: flex; align-items: center; gap: 12px; }
+.scan-close { color: #fff; background: rgba(255,255,255,0.15); border: none; border-radius: 20px; width: 32px; height: 32px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.scan-header-title { color: #fff; font-size: 17px; font-weight: 600; flex: 1; }
+
+.scan-viewport { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+.scan-frame { width: min(280px, 70vw); aspect-ratio: 1; position: relative; }
+.scan-corner { position: absolute; width: 24px; height: 24px; border-color: #00E676; border-style: solid; }
+.scan-corner.tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 4px; }
+.scan-corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+.scan-corner.bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+.scan-corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+.scan-line { position: absolute; left: 3px; right: 3px; height: 2px; background: linear-gradient(90deg, transparent, #00E676, transparent); animation: scanMove 2s linear infinite; }
+@keyframes scanMove { 0%{top:3px} 100%{top:calc(100% - 5px)} }
+.scan-hint { color: rgba(255,255,255,0.6); font-size: 13px; text-align: center; margin-top: 16px; }
+
+.scan-processing { position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.scan-spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.scan-processing-text { color: #fff; font-size: 15px; }
+
+.scan-queue { padding: 16px 20px; background: rgba(255,255,255,0.08); }
+.scan-queue-label { color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 10px; }
+.scan-queue-scroll { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; }
+.scan-queue-scroll::-webkit-scrollbar { display: none; }
+.scan-queue-item { background: rgba(255,255,255,0.12); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 70px; flex-shrink: 0; }
+.scan-queue-emoji { font-size: 24px; }
+.scan-queue-name { color: #fff; font-size: 11px; text-align: center; max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.scan-footer { padding: 16px 20px calc(var(--safe-bottom) + 20px); display: flex; flex-direction: column; gap: 10px; }
+.scan-camera-btn { background: #fff; color: #000; border: none; border-radius: var(--r-btn); padding: 16px; font-size: 16px; font-weight: 600; font-family: var(--font); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.scan-confirm-btn { background: var(--accent2); color: #fff; border: none; border-radius: var(--r-btn); padding: 16px; font-size: 16px; font-weight: 600; font-family: var(--font); cursor: pointer; display: none; }
+.scan-confirm-btn.visible { display: block; }
+
+/* ── Assign view ── */
+#view-assign { padding-bottom: calc(var(--safe-bottom) + 100px); }
+.assign-item-card { background: var(--card); border-radius: var(--r-card); margin: 0 20px 16px; padding: 18px; }
+.assign-item-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.assign-item-emoji { font-size: 40px; }
+.assign-item-info { flex: 1; }
+.assign-item-name { font-size: 18px; font-weight: 700; }
+.assign-item-meta { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+.assign-ai-card { background: linear-gradient(135deg, #007AFF 0%, #0066CC 100%); border-radius: var(--r-card); padding: 16px; margin-bottom: 14px; }
+.assign-ai-label { color: rgba(255,255,255,0.7); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.assign-ai-space { color: #fff; font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.assign-ai-reason { color: rgba(255,255,255,0.85); font-size: 13px; }
+
+.assign-space-label { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 10px; }
+.space-select-list { display: flex; flex-direction: column; gap: 6px; }
+.space-select-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-btn); background: var(--bg); cursor: pointer; }
+.space-select-item.selected { background: rgba(0,122,255,0.1); outline: 2px solid var(--accent); }
+.space-select-item:active { opacity: 0.7; }
+.space-select-emoji { font-size: 18px; }
+.space-select-name { flex: 1; font-size: 15px; }
+.space-select-check { width: 20px; height: 20px; border-radius: 10px; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; }
+.space-select-item.selected .space-select-check { background: var(--accent); border-color: var(--accent); color: #fff; font-size: 12px; }
+
+.assign-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 20px calc(var(--safe-bottom) + 12px); background: rgba(242,240,235,0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border); z-index: 50; }
+.assign-confirm-btn { width: 100%; background: var(--accent2); color: #fff; border: none; border-radius: var(--r-btn); padding: 16px; font-size: 16px; font-weight: 600; font-family: var(--font); cursor: pointer; }
+
+/* ── Search view ── */
+#view-search { padding-bottom: calc(var(--safe-bottom) + 100px); }
+.search-results { padding: 12px 20px; display: flex; flex-direction: column; gap: 8px; }
+.search-result-item { background: var(--card); border-radius: var(--r-card); padding: 14px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.search-result-item:active { opacity: 0.7; }
+.search-result-emoji { font-size: 28px; }
+.search-result-info { flex: 1; }
+.search-result-name { font-size: 16px; font-weight: 600; }
+.search-result-path { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+/* ── Item detail view ── */
+#view-item { padding-bottom: calc(var(--safe-bottom) + 20px); }
+.item-detail-thumb { margin: 0 20px 20px; border-radius: var(--r-card); overflow: hidden; background: var(--card); aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; font-size: 80px; }
+.item-detail-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.item-detail-section { background: var(--card); border-radius: var(--r-card); margin: 0 20px 12px; padding: 4px 0; }
+.item-detail-row { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); gap: 12px; }
+.item-detail-row:last-child { border-bottom: none; }
+.item-detail-label { font-size: 15px; color: var(--text2); width: 60px; flex-shrink: 0; }
+.item-detail-value { flex: 1; font-size: 15px; font-family: var(--font); border: none; outline: none; background: none; color: var(--text); text-align: right; }
+.item-detail-value:focus { color: var(--accent); }
+.btn-danger { width: calc(100% - 40px); margin: 8px 20px; background: none; border: 1.5px solid var(--danger); color: var(--danger); border-radius: var(--r-btn); padding: 14px; font-size: 16px; font-weight: 600; font-family: var(--font); cursor: pointer; }
+
+/* ── Bottom search bar ── */
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px 20px calc(var(--safe-bottom) + 10px); background: rgba(242,240,235,0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border); z-index: 90; display: flex; align-items: center; gap: 10px; }
+.search-input-wrap { flex: 1; background: var(--card); border-radius: 22px; display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
+.search-icon { font-size: 16px; color: var(--text2); }
+.search-input { border: none; background: none; font-size: 16px; font-family: var(--font); color: var(--text); outline: none; flex: 1; min-width: 0; }
+.search-input::placeholder { color: var(--text2); }
+.search-photo-btn { background: none; border: none; font-size: 22px; padding: 4px; cursor: pointer; }
+
+/* ── Dialog / Modal ── */
+.dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 500; display: none; align-items: center; justify-content: center; padding: 20px; }
+.dialog-overlay.active { display: flex; }
+.dialog { background: var(--card); border-radius: var(--r-card); padding: 24px; width: 100%; max-width: 340px; }
+.dialog-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+.dialog-input { width: 100%; border: 1.5px solid var(--border); border-radius: var(--r-btn); padding: 12px 14px; font-size: 16px; font-family: var(--font); background: var(--bg); color: var(--text); outline: none; margin-bottom: 8px; }
+.dialog-input:focus { border-color: var(--accent); }
+.emoji-pick-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.emoji-pick-btn { font-size: 24px; padding: 6px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; background: none; }
+.emoji-pick-btn.selected { border-color: var(--accent); background: rgba(0,122,255,0.08); }
+.dialog-actions { display: flex; gap: 10px; }
+.dialog-actions button { flex: 1; padding: 12px; border-radius: var(--r-btn); border: none; font-size: 15px; font-weight: 600; font-family: var(--font); cursor: pointer; }
+.dialog-cancel { background: var(--bg); color: var(--text); }
+.dialog-confirm { background: var(--accent); color: #fff; }
+
+/* ── Toast ── */
+.toast { position: fixed; bottom: calc(var(--safe-bottom) + 100px); left: 50%; transform: translateX(-50%); background: rgba(28,28,30,0.9); color: #fff; border-radius: 20px; padding: 10px 18px; font-size: 14px; z-index: 1000; opacity: 0; transition: opacity 0.3s; white-space: nowrap; pointer-events: none; }
+.toast.show { opacity: 1; }
+
+/* ── Loading spinner overlay ── */
+.loading { position: fixed; inset: 0; background: rgba(242,240,235,0.8); z-index: 800; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+.loading.active { display: flex; }
+.loading-spinner { width: 44px; height: 44px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+.loading-text { font-size: 15px; color: var(--text2); }
+
+/* ── Manual add item form ── */
+.manual-form { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 13px; font-weight: 600; color: var(--text2); }
+.form-input { background: var(--card); border: none; border-radius: var(--r-btn); padding: 12px 14px; font-size: 16px; font-family: var(--font); color: var(--text); outline: none; }
+.form-input:focus { box-shadow: 0 0 0 2px var(--accent); }
+.form-select { background: var(--card); border: none; border-radius: var(--r-btn); padding: 12px 14px; font-size: 16px; font-family: var(--font); color: var(--text); outline: none; appearance: none; -webkit-appearance: none; }
+.tag-selector { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-selector-item { background: var(--card); border-radius: 20px; padding: 6px 12px; font-size: 14px; cursor: pointer; border: 2px solid transparent; }
+.tag-selector-item.selected { border-color: var(--accent); background: rgba(0,122,255,0.1); color: var(--accent); }
+
+/* ── Settings link ── */
+.settings-link { position: fixed; top: calc(var(--safe-top) + 12px); right: 16px; z-index: 50; background: none; border: none; font-size: 22px; cursor: pointer; padding: 4px; }
+
+/* ── Move item sheet ── */
+.move-sheet-list { max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
+</style>
+</head>
+<body>
+
+<!-- ───────────── Config View ───────────── -->
+<div id="view-config" class="view">
+  <div class="config-logo">🏠</div>
+  <div class="config-title">收纳助手</div>
+  <div class="config-subtitle">智能家庭收纳管理<br>让每件物品都有家</div>
+  <div class="config-card">
+    <div class="config-label">API Key</div>
+    <input id="api-key-input" class="config-input" type="password" placeholder="sk-..." autocomplete="off">
+    <div class="config-label" style="margin-top:14px">API 地址（中转可修改）</div>
+    <input id="api-base-input" class="config-input" type="url" placeholder="https://api.anthropic.com" autocomplete="off">
+    <div class="config-hint">
+      🔒 Key 和地址仅存储在您的设备本地，不会上传到任何服务器。<br>
+      官方地址：<a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+    </div>
+    <button class="btn-primary" onclick="saveApiKey()">开始使用</button>
+  </div>
+</div>
+
+<!-- ───────────── Home View ───────────── -->
+<div id="view-home" class="view">
+  <button class="settings-link" onclick="navigate('config')" title="设置">⚙️</button>
+  <div class="home-header">
+    <div class="home-greeting">你好，Sujia 👋</div>
+    <div class="home-title">我的收纳空间</div>
+    <div class="home-subtitle" id="home-subtitle">加载中…</div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-num" id="stat-items">0</div>
+      <div class="stat-label">已收纳物品</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-spaces">0</div>
+      <div class="stat-label">收纳空间</div>
+    </div>
+  </div>
+  <div class="section-label">我的空间</div>
+  <div class="space-list" id="home-space-list"></div>
+</div>
+
+<!-- ───────────── Space Detail View ───────────── -->
+<div id="view-space" class="view">
+  <div class="nav-bar">
+    <button class="nav-back" id="space-back-btn" onclick="spaceGoBack()">‹ 返回</button>
+    <div class="nav-title" id="space-nav-title"></div>
+    <button class="nav-action" onclick="showSpaceOptions()">···</button>
+  </div>
+  <div class="breadcrumb" id="space-breadcrumb"></div>
+  <div class="section-label" id="subspace-section-label" style="display:none">子空间</div>
+  <div class="subspace-scroll" id="subspace-scroll"></div>
+  <div class="section-label" id="items-section-label">物品</div>
+  <div class="items-grid" id="space-items-grid"></div>
+</div>
+
+<!-- ───────────── Scan View ───────────── -->
+<div id="view-scan" class="view">
+  <div class="scan-header">
+    <button class="scan-close" onclick="navigate('home')">✕</button>
+    <div class="scan-header-title">扫描添加物品</div>
+  </div>
+  <div class="scan-viewport">
+    <div>
+      <div class="scan-frame">
+        <div class="scan-corner tl"></div>
+        <div class="scan-corner tr"></div>
+        <div class="scan-corner bl"></div>
+        <div class="scan-corner br"></div>
+        <div class="scan-line" id="scan-line"></div>
+      </div>
+      <div class="scan-hint">拍摄物品进行识别</div>
+    </div>
+    <div class="scan-processing" id="scan-processing" style="display:none">
+      <div class="scan-spinner"></div>
+      <div class="scan-processing-text">AI 识别中…</div>
+    </div>
+  </div>
+  <div class="scan-queue" id="scan-queue" style="display:none">
+    <div class="scan-queue-label">待分配队列</div>
+    <div class="scan-queue-scroll" id="scan-queue-scroll"></div>
+  </div>
+  <div class="scan-footer">
+    <button class="scan-camera-btn" onclick="triggerCamera()">📷 拍照识别</button>
+    <button class="scan-confirm-btn" id="scan-confirm-btn" onclick="goToAssign()">确认，开始分配位置</button>
+  </div>
+  <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleCameraInput(event)">
+</div>
+
+<!-- ───────────── Assign View ───────────── -->
+<div id="view-assign" class="view">
+  <div class="nav-bar">
+    <button class="nav-back" onclick="navigate('scan')">‹ 返回</button>
+    <div class="nav-title">分配收纳位置</div>
+  </div>
+  <div id="assign-content" style="padding: 0 0 80px"></div>
+  <div class="assign-footer">
+    <button class="assign-confirm-btn" onclick="confirmAssign()">确认收纳</button>
+  </div>
+</div>
+
+<!-- ───────────── Search View ───────────── -->
+<div id="view-search" class="view">
+  <div class="nav-bar">
+    <button class="nav-back" onclick="exitSearch()">取消</button>
+    <div class="nav-title">搜索</div>
+    <button class="nav-action" onclick="triggerPhotoSearch()">📷</button>
+  </div>
+  <div class="search-results" id="search-results"></div>
+  <input type="file" id="photo-search-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSearch(event)">
+</div>
+
+<!-- ───────────── Item Detail View ───────────── -->
+<div id="view-item" class="view">
+  <div class="nav-bar">
+    <button class="nav-back" id="item-back-btn" onclick="itemGoBack()">‹ 返回</button>
+    <div class="nav-title">物品详情</div>
+    <button class="nav-action" onclick="saveItemEdits()">保存</button>
+  </div>
+  <div id="item-detail-content"></div>
+</div>
+
+<!-- ───────────── Manual Add Item View ───────────── -->
+<div id="view-manual" class="view">
+  <div class="nav-bar">
+    <button class="nav-back" onclick="navigate('home')">‹ 取消</button>
+    <div class="nav-title">手动添加物品</div>
+    <button class="nav-action" onclick="submitManualItem()">保存</button>
+  </div>
+  <div class="manual-form" style="padding-top:16px">
+    <div class="form-group">
+      <div class="form-label">物品名称 *</div>
+      <input id="manual-name" class="form-input" type="text" placeholder="例：蓝牙耳机">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Emoji 图标</div>
+      <input id="manual-emoji" class="form-input" type="text" placeholder="🎧" maxlength="2">
+    </div>
+    <div class="form-group">
+      <div class="form-label">品牌</div>
+      <input id="manual-brand" class="form-input" type="text" placeholder="可选">
+    </div>
+    <div class="form-group">
+      <div class="form-label">颜色</div>
+      <input id="manual-color" class="form-input" type="text" placeholder="例：黑色">
+    </div>
+    <div class="form-group">
+      <div class="form-label">大小</div>
+      <select id="manual-size" class="form-select">
+        <option value="small">小型</option>
+        <option value="medium" selected>中等</option>
+        <option value="large">大型</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <div class="form-label">标签</div>
+      <div class="tag-selector" id="manual-tags"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">收纳位置</div>
+      <select id="manual-space" class="form-select"></select>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────── Bottom Bar ───────────── -->
+<div class="bottom-bar" id="bottom-bar">
+  <div class="search-input-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="search-input" placeholder="你要找什么？" onfocus="enterSearch()" oninput="handleSearchInput(event)">
+    <button class="search-photo-btn" onclick="triggerPhotoSearch()" title="拍照搜索">🎙️</button>
+  </div>
+</div>
+
+<!-- ───────────── FAB ───────────── -->
+<button class="fab" id="fab" onclick="toggleActionSheet()">+</button>
+
+<!-- ───────────── Action Sheet ───────────── -->
+<div class="overlay" id="overlay" onclick="closeActionSheet()"></div>
+<div class="action-sheet" id="action-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">添加</div>
+  <div class="sheet-btn" onclick="closeActionSheet(); navigate('scan')">
+    <span class="sheet-btn-icon">📷</span>
+    <span class="sheet-btn-label">扫描添加物品</span>
+  </div>
+  <div class="sheet-btn" onclick="closeActionSheet(); showAddSpaceDialog()">
+    <span class="sheet-btn-icon">🏠</span>
+    <span class="sheet-btn-label">新建空间</span>
+  </div>
+  <div class="sheet-btn" onclick="closeActionSheet(); openManualAdd()">
+    <span class="sheet-btn-icon">✏️</span>
+    <span class="sheet-btn-label">手动添加物品</span>
+  </div>
+</div>
+
+<!-- ───────────── Add Space Dialog ───────────── -->
+<div class="dialog-overlay" id="dialog-add-space">
+  <div class="dialog">
+    <div class="dialog-title" id="dialog-space-title">新建空间</div>
+    <input class="dialog-input" id="dialog-space-name" placeholder="空间名称，例：客厅">
+    <div class="form-label" style="margin-bottom:8px">选择图标</div>
+    <div class="emoji-pick-row" id="space-emoji-row"></div>
+    <div class="dialog-actions">
+      <button class="dialog-cancel" onclick="closeDialog('dialog-add-space')">取消</button>
+      <button class="dialog-confirm" onclick="confirmAddSpace()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────── Move Item Sheet ───────────── -->
+<div class="overlay" id="move-overlay" onclick="closeMoveSheet()"></div>
+<div class="action-sheet" id="move-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">移动物品到…</div>
+  <div class="move-sheet-list" id="move-sheet-list"></div>
+</div>
+
+<!-- ───────────── Toast ───────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ───────────── Loading ───────────── -->
+<div class="loading" id="loading">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loading-text">处理中…</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA LAYER
+// ═══════════════════════════════════════
+const STORAGE_KEY = 'storage_app_data';
+const API_KEY_KEY = 'storage_app_api_key';
+const API_BASE_KEY = 'storage_app_api_base';
+const ALL_TAGS = ['数码','电子','书籍','文具','服装','食品','药品','护肤','工具','运动','玩具','家居','厨具','餐具','装饰'];
+const SPACE_EMOJIS = ['🏠','🛋️','🛏️','🍳','🛁','🚗','📚','🗄️','👔','🧸','🌿','💊','🔧','🎮','📦','🗂️','🪴','🧴'];
+
+let state = { spaces: {}, items: {}, version: 1 };
+let currentSpaceId = null;
+let scanQueue = [];
+let assignSelections = {};
+let editingItemId = null;
+let editingSpaceId = null;
+let currentDialogSpaceParentId = null;
+let prevView = 'home';
+
+function generateId() {
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) state = JSON.parse(raw);
+  } catch(e) { state = { spaces: {}, items: {}, version: 1 }; }
+}
+
+function getApiKey() { return localStorage.getItem(API_KEY_KEY) || ''; }
+function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || 'https://api.anthropic.com').replace(/\/$/, ''); }
+function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k) { showToast('请输入 API Key'); return; }
+  const b = document.getElementById('api-base-input').value.trim();
+  localStorage.setItem(API_KEY_KEY, k);
+  localStorage.setItem(API_BASE_KEY, b || 'https://api.anthropic.com');
+  navigate('home');
+}
+
+// ── Computed helpers ──
+function countItems(spaceId) {
+  const sp = state.spaces[spaceId];
+  if (!sp) return 0;
+  let n = (sp.itemIds || []).length;
+  for (const cid of (sp.childIds || [])) n += countItems(cid);
+  return n;
+}
+
+function getSpacePath(spaceId) {
+  const path = [];
+  let id = spaceId;
+  while (id && state.spaces[id]) {
+    path.unshift({ id, name: state.spaces[id].name, emoji: state.spaces[id].emoji });
+    id = state.spaces[id].parentId;
+  }
+  return path;
+}
+
+function getAllSpacesFlat(parentId = null, depth = 0) {
+  const result = [];
+  const roots = Object.values(state.spaces).filter(s => s.parentId === parentId);
+  for (const sp of roots) {
+    result.push({ ...sp, depth });
+    result.push(...getAllSpacesFlat(sp.id, depth + 1));
+  }
+  return result;
+}
+
+function totalItemCount() { return Object.keys(state.items).length; }
+function totalSpaceCount() { return Object.keys(state.spaces).length; }
+
+// ═══════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════
+function navigate(view, params = {}) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+
+  const bottomBar = document.getElementById('bottom-bar');
+  const fab = document.getElementById('fab');
+  const hideBottom = ['scan', 'config'].includes(view);
+  bottomBar.style.display = hideBottom ? 'none' : '';
+  fab.style.display = ['scan', 'config', 'assign', 'manual'].includes(view) ? 'none' : '';
+
+  if (view === 'home') renderHome();
+  else if (view === 'config') {
+    document.getElementById('api-key-input').value = getApiKey();
+    document.getElementById('api-base-input').value = getApiBase();
+  }
+  else if (view === 'space') renderSpaceDetail(params.spaceId);
+  else if (view === 'search') renderSearch('');
+  else if (view === 'assign') renderAssign();
+  else if (view === 'item') renderItemDetail(params.itemId);
+  else if (view === 'manual') renderManualForm(params.spaceId);
+}
+
+function exitSearch() {
+  document.getElementById('search-input').value = '';
+  navigate('home');
+}
+
+// ═══════════════════════════════════════
+// RENDER HOME
+// ═══════════════════════════════════════
+function renderHome() {
+  const totalItems = totalItemCount();
+  const totalSpaces = totalSpaceCount();
+  document.getElementById('stat-items').textContent = totalItems;
+  document.getElementById('stat-spaces').textContent = totalSpaces;
+  document.getElementById('home-subtitle').textContent = `${totalSpaces} 个空间 · ${totalItems} 件物品`;
+
+  const list = document.getElementById('home-space-list');
+  const rootSpaces = Object.values(state.spaces).filter(s => !s.parentId);
+
+  if (rootSpaces.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-emoji">📦</div><div class="empty-text">还没有收纳空间</div><div class="empty-hint">点击右下角 + 新建空间</div></div>`;
+    return;
+  }
+
+  list.innerHTML = rootSpaces.map(sp => {
+    const n = countItems(sp.id);
+    const children = (sp.childIds || []).slice(0, 4).map(cid => {
+      const c = state.spaces[cid];
+      return c ? `<span class="space-child-tag">${c.emoji}${c.name}</span>` : '';
+    }).join('');
+    const childCount = (sp.childIds || []).length;
+    return `<div class="space-card" onclick="navigate('space',{spaceId:'${sp.id}'})" oncontextmenu="event.preventDefault();showSpaceContextMenu('${sp.id}')">
+      <div class="space-card-top">
+        <div class="space-card-emoji">${sp.emoji}</div>
+        <div class="space-card-info">
+          <div class="space-card-name">${escapeHtml(sp.name)}</div>
+          <div class="space-card-count">${childCount > 0 ? childCount + ' 个子空间 · ' : ''}${n} 件物品</div>
+        </div>
+        <div class="space-card-arrow">›</div>
+      </div>
+      ${children ? `<div class="space-card-children">${children}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// RENDER SPACE DETAIL
+// ═══════════════════════════════════════
+function renderSpaceDetail(spaceId) {
+  currentSpaceId = spaceId;
+  const sp = state.spaces[spaceId];
+  if (!sp) { navigate('home'); return; }
+
+  document.getElementById('space-nav-title').textContent = sp.emoji + ' ' + sp.name;
+
+  // breadcrumb
+  const path = getSpacePath(spaceId);
+  const bc = document.getElementById('space-breadcrumb');
+  bc.innerHTML = `<span class="breadcrumb-item" onclick="navigate('home')">🏠</span>` +
+    path.map((p, i) => {
+      const isCurrent = i === path.length - 1;
+      return `<span class="breadcrumb-sep">›</span><span class="breadcrumb-item ${isCurrent ? 'current' : ''}" ${isCurrent ? '' : `onclick="navigate('space',{spaceId:'${p.id}'})"`}>${p.emoji}${escapeHtml(p.name)}</span>`;
+    }).join('');
+
+  // sub-spaces
+  const children = (sp.childIds || []).map(cid => state.spaces[cid]).filter(Boolean);
+  const subLabel = document.getElementById('subspace-section-label');
+  const subScroll = document.getElementById('subspace-scroll');
+  if (children.length > 0) {
+    subLabel.style.display = '';
+    subScroll.innerHTML = children.map(c => {
+      const n = countItems(c.id);
+      return `<div class="subspace-chip" onclick="navigate('space',{spaceId:'${c.id}'})">
+        <div class="subspace-chip-emoji">${c.emoji}</div>
+        <div class="subspace-chip-name">${escapeHtml(c.name)}</div>
+        <div class="subspace-chip-count">${n}件</div>
+      </div>`;
+    }).join('') + `<div class="subspace-chip subspace-add" onclick="showAddSpaceDialog('${spaceId}')"><div class="subspace-chip-emoji">＋</div><div class="subspace-chip-name" style="color:var(--text2)">添加</div></div>`;
+  } else {
+    subLabel.style.display = 'none';
+    subScroll.innerHTML = `<div class="subspace-chip subspace-add" onclick="showAddSpaceDialog('${spaceId}')"><div class="subspace-chip-emoji">＋</div><div class="subspace-chip-name" style="color:var(--text2)">添加子空间</div></div>`;
+    subLabel.style.display = '';
+  }
+
+  // items
+  const items = (sp.itemIds || []).map(iid => state.items[iid]).filter(Boolean);
+  const grid = document.getElementById('space-items-grid');
+  document.getElementById('items-section-label').textContent = `物品（${items.length}件）`;
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-emoji">📭</div><div class="empty-text">这里还没有物品</div><div class="empty-hint">点击右下角 + 添加</div></div>`;
+    return;
+  }
+  grid.innerHTML = items.map(item => {
+    const thumb = item.image_thumb
+      ? `<img src="${item.image_thumb}" alt="">`
+      : item.emoji;
+    return `<div class="item-card" onclick="navigate('item',{itemId:'${item.id}'})" oncontextmenu="event.preventDefault();showItemContextMenu('${item.id}')">
+      <div class="item-card-thumb">${typeof thumb === 'string' && thumb.startsWith('data:') || item.image_thumb ? `<img src="${item.image_thumb}" alt="">` : item.emoji}</div>
+      <div class="item-card-name">${escapeHtml(item.name)}</div>
+      <div class="item-card-meta">${item.color || ''}${item.color && item.size_cn ? ' · ' : ''}${item.size_cn || ''}</div>
+      ${item.tags && item.tags.length ? `<div class="tags-row">${item.tags.slice(0,2).map(t=>`<span class="tag">${t}</span>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function spaceGoBack() {
+  const sp = state.spaces[currentSpaceId];
+  if (sp && sp.parentId) navigate('space', { spaceId: sp.parentId });
+  else navigate('home');
+}
+
+function showSpaceOptions() {
+  showSpaceContextMenu(currentSpaceId);
+}
+
+function showSpaceContextMenu(spaceId) {
+  const sp = state.spaces[spaceId];
+  if (!sp) return;
+  openMiniSheet([
+    { label: '✏️ 重命名', action: () => showRenameSpaceDialog(spaceId) },
+    { label: '➕ 添加子空间', action: () => showAddSpaceDialog(spaceId) },
+    { label: '🗑️ 删除空间', action: () => confirmDeleteSpace(spaceId), danger: true },
+  ]);
+}
+
+function showItemContextMenu(itemId) {
+  openMiniSheet([
+    { label: '📦 移动到…', action: () => showMoveSheet(itemId) },
+    { label: '✏️ 编辑', action: () => navigate('item', { itemId }) },
+    { label: '🗑️ 删除', action: () => confirmDeleteItem(itemId), danger: true },
+  ]);
+}
+
+// ═══════════════════════════════════════
+// SPACE CRUD
+// ═══════════════════════════════════════
+function showAddSpaceDialog(parentId = null) {
+  currentDialogSpaceParentId = parentId;
+  editingSpaceId = null;
+  document.getElementById('dialog-space-title').textContent = '新建空间';
+  document.getElementById('dialog-space-name').value = '';
+  renderEmojiPicker('space-emoji-row', SPACE_EMOJIS, '🏠');
+  openDialog('dialog-add-space');
+}
+
+function showRenameSpaceDialog(spaceId) {
+  const sp = state.spaces[spaceId];
+  if (!sp) return;
+  editingSpaceId = spaceId;
+  document.getElementById('dialog-space-title').textContent = '重命名空间';
+  document.getElementById('dialog-space-name').value = sp.name;
+  renderEmojiPicker('space-emoji-row', SPACE_EMOJIS, sp.emoji);
+  openDialog('dialog-add-space');
+}
+
+function confirmAddSpace() {
+  const name = document.getElementById('dialog-space-name').value.trim();
+  if (!name) { showToast('请输入空间名称'); return; }
+  const emoji = getSelectedEmoji('space-emoji-row') || '📦';
+
+  if (editingSpaceId) {
+    state.spaces[editingSpaceId].name = name;
+    state.spaces[editingSpaceId].emoji = emoji;
+    saveState();
+    showToast('已更新');
+  } else {
+    const id = generateId();
+    state.spaces[id] = { id, name, emoji, parentId: currentDialogSpaceParentId, childIds: [], itemIds: [] };
+    if (currentDialogSpaceParentId && state.spaces[currentDialogSpaceParentId]) {
+      state.spaces[currentDialogSpaceParentId].childIds.push(id);
+    }
+    saveState();
+    showToast('空间已创建');
+  }
+  closeDialog('dialog-add-space');
+
+  if (currentSpaceId) renderSpaceDetail(currentSpaceId);
+  else renderHome();
+}
+
+function confirmDeleteSpace(spaceId) {
+  const sp = state.spaces[spaceId];
+  if (!sp) return;
+  if (!confirm(`确定删除「${sp.name}」及其所有内容？`)) return;
+  deleteSpaceRecursive(spaceId);
+  saveState();
+  showToast('已删除');
+  if (sp.parentId && state.spaces[sp.parentId]) navigate('space', { spaceId: sp.parentId });
+  else navigate('home');
+}
+
+function deleteSpaceRecursive(spaceId) {
+  const sp = state.spaces[spaceId];
+  if (!sp) return;
+  for (const cid of (sp.childIds || [])) deleteSpaceRecursive(cid);
+  for (const iid of (sp.itemIds || [])) delete state.items[iid];
+  if (sp.parentId && state.spaces[sp.parentId]) {
+    state.spaces[sp.parentId].childIds = state.spaces[sp.parentId].childIds.filter(id => id !== spaceId);
+  }
+  delete state.spaces[spaceId];
+}
+
+// ═══════════════════════════════════════
+// ITEM DETAIL
+// ═══════════════════════════════════════
+function renderItemDetail(itemId) {
+  editingItemId = itemId;
+  const item = state.items[itemId];
+  if (!item) { navigate('home'); return; }
+
+  prevView = item.spaceId ? 'space' : 'home';
+  document.getElementById('item-back-btn').onclick = itemGoBack;
+
+  const sizeOptions = ['small','medium','large'].map(s => {
+    const labels = {small:'小型', medium:'中等', large:'大型'};
+    return `<option value="${s}" ${item.size === s ? 'selected' : ''}>${labels[s]}</option>`;
+  }).join('');
+
+  const tagRows = ALL_TAGS.map(t =>
+    `<span class="tag-selector-item ${(item.tags||[]).includes(t)?'selected':''}" onclick="toggleItemTag(this,'${t}')">${t}</span>`
+  ).join('');
+
+  const spaceOptions = getAllSpacesFlat().map(sp =>
+    `<option value="${sp.id}" ${item.spaceId === sp.id ? 'selected' : ''}>${'　'.repeat(sp.depth)}${sp.emoji}${sp.name}</option>`
+  ).join('');
+
+  const thumbHtml = item.image_thumb
+    ? `<img src="${item.image_thumb}" alt="">`
+    : `<span style="font-size:80px">${item.emoji}</span>`;
+
+  document.getElementById('item-detail-content').innerHTML = `
+    <div class="item-detail-thumb">${thumbHtml}</div>
+    <div class="item-detail-section">
+      <div class="item-detail-row"><div class="item-detail-label">名称</div><input class="item-detail-value" id="edit-name" value="${escapeHtml(item.name)}"></div>
+      <div class="item-detail-row"><div class="item-detail-label">Emoji</div><input class="item-detail-value" id="edit-emoji" value="${item.emoji}" maxlength="2" style="font-size:24px"></div>
+      <div class="item-detail-row"><div class="item-detail-label">品牌</div><input class="item-detail-value" id="edit-brand" value="${escapeHtml(item.brand||'')}"></div>
+      <div class="item-detail-row"><div class="item-detail-label">颜色</div><input class="item-detail-value" id="edit-color" value="${escapeHtml(item.color||'')}"></div>
+      <div class="item-detail-row"><div class="item-detail-label">大小</div><select class="item-detail-value" id="edit-size" style="text-align:right">${sizeOptions}</select></div>
+      <div class="item-detail-row"><div class="item-detail-label">描述</div><input class="item-detail-value" id="edit-desc" value="${escapeHtml(item.description||'')}"></div>
+    </div>
+    <div class="item-detail-section" style="padding:14px 16px">
+      <div class="form-label" style="margin-bottom:10px">标签</div>
+      <div class="tag-selector" id="edit-tags">${tagRows}</div>
+    </div>
+    <div class="item-detail-section" style="padding:14px 16px">
+      <div class="form-label" style="margin-bottom:10px">收纳位置</div>
+      <select class="form-select" id="edit-space" style="width:100%">${spaceOptions}</select>
+    </div>
+    <button class="btn-danger" onclick="confirmDeleteItem('${itemId}')">🗑️ 删除此物品</button>
+  `;
+}
+
+function toggleItemTag(el, tag) {
+  el.classList.toggle('selected');
+}
+
+function saveItemEdits() {
+  const item = state.items[editingItemId];
+  if (!item) return;
+  const newSpaceId = document.getElementById('edit-space').value;
+  const selectedTags = [...document.querySelectorAll('#edit-tags .selected')].map(el => el.textContent);
+  const sizeMap = {small:'小型', medium:'中等', large:'大型'};
+  const newSize = document.getElementById('edit-size').value;
+
+  // Move item between spaces
+  if (newSpaceId !== item.spaceId) {
+    if (item.spaceId && state.spaces[item.spaceId]) {
+      state.spaces[item.spaceId].itemIds = state.spaces[item.spaceId].itemIds.filter(id => id !== editingItemId);
+    }
+    if (state.spaces[newSpaceId]) {
+      state.spaces[newSpaceId].itemIds.push(editingItemId);
+    }
+    item.spaceId = newSpaceId;
+  }
+
+  item.name = document.getElementById('edit-name').value.trim() || item.name;
+  item.emoji = document.getElementById('edit-emoji').value || item.emoji;
+  item.brand = document.getElementById('edit-brand').value.trim();
+  item.color = document.getElementById('edit-color').value.trim();
+  item.size = newSize;
+  item.size_cn = sizeMap[newSize];
+  item.description = document.getElementById('edit-desc').value.trim();
+  item.tags = selectedTags;
+
+  saveState();
+  showToast('已保存');
+  itemGoBack();
+}
+
+function itemGoBack() {
+  const item = state.items[editingItemId];
+  if (item && item.spaceId && state.spaces[item.spaceId]) {
+    navigate('space', { spaceId: item.spaceId });
+  } else {
+    navigate('home');
+  }
+}
+
+function confirmDeleteItem(itemId) {
+  const item = state.items[itemId];
+  if (!item) return;
+  if (!confirm(`确定删除「${item.name}」？`)) return;
+  if (item.spaceId && state.spaces[item.spaceId]) {
+    state.spaces[item.spaceId].itemIds = state.spaces[item.spaceId].itemIds.filter(id => id !== itemId);
+  }
+  delete state.items[itemId];
+  saveState();
+  showToast('已删除');
+  itemGoBack();
+}
+
+// ═══════════════════════════════════════
+// MOVE ITEM
+// ═══════════════════════════════════════
+let movingItemId = null;
+function showMoveSheet(itemId) {
+  movingItemId = itemId;
+  const list = document.getElementById('move-sheet-list');
+  list.innerHTML = getAllSpacesFlat().map(sp => `
+    <div class="sheet-btn" onclick="moveItemTo('${sp.id}')">
+      <span class="sheet-btn-icon">${sp.emoji}</span>
+      <span class="sheet-btn-label">${'　'.repeat(sp.depth)}${escapeHtml(sp.name)}</span>
+    </div>
+  `).join('');
+  document.getElementById('move-overlay').classList.add('active');
+  document.getElementById('move-sheet').classList.add('active');
+}
+
+function closeMoveSheet() {
+  document.getElementById('move-overlay').classList.remove('active');
+  document.getElementById('move-sheet').classList.remove('active');
+}
+
+function moveItemTo(spaceId) {
+  const item = state.items[movingItemId];
+  if (!item) { closeMoveSheet(); return; }
+  if (item.spaceId && state.spaces[item.spaceId]) {
+    state.spaces[item.spaceId].itemIds = state.spaces[item.spaceId].itemIds.filter(id => id !== movingItemId);
+  }
+  item.spaceId = spaceId;
+  if (state.spaces[spaceId]) state.spaces[spaceId].itemIds.push(movingItemId);
+  saveState();
+  closeMoveSheet();
+  showToast('已移动');
+  if (currentSpaceId) renderSpaceDetail(currentSpaceId);
+  else renderHome();
+}
+
+// ═══════════════════════════════════════
+// SCAN & CAMERA
+// ═══════════════════════════════════════
+function triggerCamera() {
+  document.getElementById('camera-input').click();
+}
+
+async function handleCameraInput(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+
+  document.getElementById('scan-processing').style.display = 'flex';
+  document.getElementById('scan-line').style.animationPlayState = 'paused';
+
+  try {
+    const { base64, thumb } = await imageToBase64(file);
+    const result = await identifyItem(base64);
+    result.image_thumb = thumb;
+    result.id = generateId();
+    scanQueue.push(result);
+    renderScanQueue();
+  } catch(e) {
+    showToast('识别失败：' + (e.message || '未知错误'));
+  } finally {
+    document.getElementById('scan-processing').style.display = 'none';
+    document.getElementById('scan-line').style.animationPlayState = 'running';
+  }
+}
+
+function renderScanQueue() {
+  const queue = document.getElementById('scan-queue');
+  const scroll = document.getElementById('scan-queue-scroll');
+  const confirmBtn = document.getElementById('scan-confirm-btn');
+
+  if (scanQueue.length === 0) {
+    queue.style.display = 'none';
+    confirmBtn.classList.remove('visible');
+    return;
+  }
+  queue.style.display = 'block';
+  confirmBtn.classList.add('visible');
+  confirmBtn.textContent = `确认 ${scanQueue.length} 件，开始分配位置`;
+
+  scroll.innerHTML = scanQueue.map((item, i) =>
+    `<div class="scan-queue-item" onclick="removeScanItem(${i})">
+      <div class="scan-queue-emoji">${item.emoji || '📦'}</div>
+      <div class="scan-queue-name">${escapeHtml(item.name)}</div>
+    </div>`
+  ).join('');
+}
+
+function removeScanItem(index) {
+  scanQueue.splice(index, 1);
+  renderScanQueue();
+}
+
+function goToAssign() {
+  if (scanQueue.length === 0) { showToast('请先扫描物品'); return; }
+  navigate('assign');
+}
+
+// ═══════════════════════════════════════
+// ASSIGN VIEW
+// ═══════════════════════════════════════
+async function renderAssign() {
+  assignSelections = {};
+  const content = document.getElementById('assign-content');
+  content.innerHTML = '<div style="padding:20px;color:var(--text2);text-align:center">AI 推荐位置中…</div>';
+
+  const spacesList = getAllSpacesFlat();
+  if (spacesList.length === 0) {
+    content.innerHTML = `<div class="empty-state"><div class="empty-emoji">🏠</div><div class="empty-text">请先创建收纳空间</div></div>`;
+    return;
+  }
+
+  for (let i = 0; i < scanQueue.length; i++) {
+    const item = scanQueue[i];
+    let rec = null;
+    try {
+      rec = await recommendSpace(item, spacesList);
+    } catch(e) {}
+
+    const defSpaceId = rec?.recommended_space_id || spacesList[0]?.id;
+    assignSelections[item.id] = defSpaceId;
+
+    const spaceOptions = spacesList.map(sp => {
+      const indent = '　'.repeat(sp.depth);
+      const sel = sp.id === defSpaceId ? 'selected' : '';
+      return `<div class="space-select-item ${sel}" data-item="${item.id}" data-space="${sp.id}" onclick="selectAssignSpace('${item.id}','${sp.id}',this)">
+        <span class="space-select-emoji">${sp.emoji}</span>
+        <span class="space-select-name">${indent}${escapeHtml(sp.name)}</span>
+        <span class="space-select-check">${sel ? '✓' : ''}</span>
+      </div>`;
+    }).join('');
+
+    const aiHtml = rec ? `
+      <div class="assign-ai-card">
+        <div class="assign-ai-label">🤖 AI 推荐</div>
+        <div class="assign-ai-space">${state.spaces[rec.recommended_space_id]?.emoji || ''} ${state.spaces[rec.recommended_space_id]?.name || '未知空间'}</div>
+        <div class="assign-ai-reason">${escapeHtml(rec.reason || '')}</div>
+      </div>` : '';
+
+    const card = document.createElement('div');
+    card.className = 'assign-item-card';
+    card.innerHTML = `
+      <div class="assign-item-header">
+        <div class="assign-item-emoji">${item.emoji || '📦'}</div>
+        <div class="assign-item-info">
+          <div class="assign-item-name">${escapeHtml(item.name)}</div>
+          <div class="assign-item-meta">${[item.brand, item.color, item.size_cn].filter(Boolean).join(' · ')}</div>
+          ${item.tags?.length ? `<div class="tags-row">${item.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>
+      ${aiHtml}
+      <div class="assign-space-label">选择位置</div>
+      <div class="space-select-list" id="space-list-${item.id}">${spaceOptions}</div>
+    `;
+    if (i === 0) content.innerHTML = '';
+    content.appendChild(card);
+  }
+}
+
+function selectAssignSpace(itemId, spaceId, el) {
+  assignSelections[itemId] = spaceId;
+  const list = document.getElementById(`space-list-${itemId}`);
+  list.querySelectorAll('.space-select-item').forEach(item => {
+    item.classList.remove('selected');
+    item.querySelector('.space-select-check').textContent = '';
+  });
+  el.classList.add('selected');
+  el.querySelector('.space-select-check').textContent = '✓';
+}
+
+function confirmAssign() {
+  const now = new Date().toISOString();
+  for (const item of scanQueue) {
+    const spaceId = assignSelections[item.id];
+    if (!spaceId || !state.spaces[spaceId]) continue;
+    const newItem = {
+      id: item.id,
+      name: item.name,
+      emoji: item.emoji || '📦',
+      brand: item.brand || '',
+      color: item.color || '',
+      size: item.size || 'medium',
+      size_cn: item.size_cn || '中等',
+      tags: item.tags || [],
+      description: item.description || '',
+      spaceId,
+      addedAt: now,
+      image_thumb: item.image_thumb || '',
+    };
+    state.items[newItem.id] = newItem;
+    state.spaces[spaceId].itemIds.push(newItem.id);
+  }
+  saveState();
+  scanQueue = [];
+  showToast(`已收纳 ${Object.keys(assignSelections).length} 件物品`);
+  navigate('home');
+}
+
+// ═══════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════
+function enterSearch() {
+  navigate('search');
+  setTimeout(() => document.getElementById('search-input').focus(), 100);
+}
+
+function handleSearchInput(e) {
+  renderSearch(e.target.value);
+}
+
+function renderSearch(query) {
+  const results = fuzzySearch(query);
+  const container = document.getElementById('search-results');
+  if (!query) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-emoji">🔍</div><div class="empty-text">输入关键词搜索物品</div><div class="empty-hint">支持名称、颜色、标签</div></div>`;
+    return;
+  }
+  if (results.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-emoji">😕</div><div class="empty-text">没有找到「${escapeHtml(query)}」</div></div>`;
+    return;
+  }
+  container.innerHTML = results.map(item => {
+    const path = getSpacePath(item.spaceId).map(p => p.emoji + p.name).join(' › ');
+    return `<div class="search-result-item" onclick="navigate('item',{itemId:'${item.id}'})">
+      <div class="search-result-emoji">${item.emoji}</div>
+      <div class="search-result-info">
+        <div class="search-result-name">${escapeHtml(item.name)}</div>
+        <div class="search-result-path">${path || '未分配'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fuzzySearch(query) {
+  if (!query) return [];
+  const q = query.toLowerCase();
+  return Object.values(state.items).filter(item => {
+    const path = getSpacePath(item.spaceId).map(p => p.name).join(' ');
+    return (
+      item.name?.toLowerCase().includes(q) ||
+      item.color?.toLowerCase().includes(q) ||
+      item.brand?.toLowerCase().includes(q) ||
+      (item.tags || []).some(t => t.toLowerCase().includes(q)) ||
+      path.toLowerCase().includes(q)
+    );
+  });
+}
+
+function triggerPhotoSearch() {
+  document.getElementById('photo-search-input').click();
+}
+
+async function handlePhotoSearch(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  showLoading('AI 识别中…');
+  try {
+    const { base64 } = await imageToBase64(file);
+    const result = await searchByPhoto(base64);
+    hideLoading();
+    const matchIds = result.match_item_ids || [];
+    const container = document.getElementById('search-results');
+    if (matchIds.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-emoji">😕</div><div class="empty-text">未找到相似物品</div></div>`;
+      return;
+    }
+    navigate('search');
+    container.innerHTML = `<div style="padding:0 0 10px;color:var(--text2);font-size:13px">📷 以图搜图结果</div>` +
+      matchIds.map(id => {
+        const item = state.items[id];
+        if (!item) return '';
+        const path = getSpacePath(item.spaceId).map(p => p.emoji + p.name).join(' › ');
+        return `<div class="search-result-item" onclick="navigate('item',{itemId:'${id}'})">
+          <div class="search-result-emoji">${item.emoji}</div>
+          <div class="search-result-info">
+            <div class="search-result-name">${escapeHtml(item.name)}</div>
+            <div class="search-result-path">${path || '未分配'}</div>
+          </div>
+        </div>`;
+      }).join('');
+  } catch(e) {
+    hideLoading();
+    showToast('搜索失败：' + (e.message || ''));
+  }
+}
+
+// ═══════════════════════════════════════
+// MANUAL ADD ITEM
+// ═══════════════════════════════════════
+function renderManualForm(defaultSpaceId) {
+  // Tags
+  const tagEl = document.getElementById('manual-tags');
+  tagEl.innerHTML = ALL_TAGS.map(t =>
+    `<span class="tag-selector-item" onclick="this.classList.toggle('selected')">${t}</span>`
+  ).join('');
+
+  // Spaces
+  const spaceEl = document.getElementById('manual-space');
+  const flat = getAllSpacesFlat();
+  spaceEl.innerHTML = `<option value="">-- 暂不分配 --</option>` +
+    flat.map(sp =>
+      `<option value="${sp.id}" ${sp.id === defaultSpaceId ? 'selected' : ''}>${'　'.repeat(sp.depth)}${sp.emoji}${sp.name}</option>`
+    ).join('');
+
+  // Clear
+  ['manual-name','manual-emoji','manual-brand','manual-color'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('manual-size').value = 'medium';
+}
+
+function openManualAdd() {
+  navigate('manual', { spaceId: currentSpaceId });
+}
+
+function submitManualItem() {
+  const name = document.getElementById('manual-name').value.trim();
+  if (!name) { showToast('请输入物品名称'); return; }
+  const size = document.getElementById('manual-size').value;
+  const sizeMap = {small:'小型', medium:'中等', large:'大型'};
+  const tags = [...document.querySelectorAll('#manual-tags .selected')].map(el => el.textContent);
+  const spaceId = document.getElementById('manual-space').value;
+  const id = generateId();
+  const item = {
+    id, name,
+    emoji: document.getElementById('manual-emoji').value || '📦',
+    brand: document.getElementById('manual-brand').value.trim(),
+    color: document.getElementById('manual-color').value.trim(),
+    size, size_cn: sizeMap[size],
+    tags,
+    spaceId: spaceId || null,
+    addedAt: new Date().toISOString(),
+    image_thumb: '',
+  };
+  state.items[id] = item;
+  if (spaceId && state.spaces[spaceId]) state.spaces[spaceId].itemIds.push(id);
+  saveState();
+  showToast('已添加');
+  if (currentSpaceId) navigate('space', { spaceId: currentSpaceId });
+  else navigate('home');
+}
+
+// ═══════════════════════════════════════
+// CLAUDE API
+// ═══════════════════════════════════════
+async function callClaude(systemPrompt, userContent) {
+  const key = getApiKey();
+  if (!key) throw new Error('请先设置 API Key');
+
+  const base = getApiBase();
+  const isRelay = base !== 'https://api.anthropic.com';
+
+  let res;
+  if (isRelay) {
+    // 中转服务：浏览器直连，避免经过 Vercel（美国服务器访问国内中转不稳定）
+    res = await fetch(`${base}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }],
+      }),
+    });
+  } else {
+    // 官方 API：走 Vercel 代理解决 CORS
+    res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ apiKey: key, apiBase: base, systemPrompt, userContent }),
+    });
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const text = data.content?.[0]?.text || '';
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('AI 返回格式错误');
+  return JSON.parse(match[0]);
+}
+
+async function identifyItem(base64) {
+  const systemPrompt = `你是一个家庭物品识别专家。用户会发给你物品图片，请识别并返回严格的 JSON 格式，不要有任何其他文字。
+
+返回格式：
+{
+  "name": "物品名称（中文，具体）",
+  "brand": "品牌（如果能识别，否则为空字符串）",
+  "color": "主要颜色（中文）",
+  "size": "small/medium/large 之一",
+  "size_cn": "小型/中等/大型 之一",
+  "tags": ["标签1", "标签2", "标签3"],
+  "emoji": "最合适的单个 emoji",
+  "description": "一句话描述（15字以内）",
+  "confidence": 0.0到1.0的识别置信度
+}
+
+tags 从以下类别选择（可多选）：数码、电子、书籍、文具、服装、食品、药品、护肤、工具、运动、玩具、家居、厨具、餐具、装饰`;
+
+  return callClaude(systemPrompt, [
+    { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
+    { type: 'text', text: '请识别这个物品' },
+  ]);
+}
+
+async function recommendSpace(item, spacesList) {
+  const systemPrompt = `你是一个收纳规划专家。根据物品信息和现有空间，推荐最合适的收纳位置。返回严格 JSON，不要其他文字。
+
+返回格式：
+{
+  "recommended_space_id": "空间ID",
+  "reason": "推荐理由（20字以内）",
+  "alternatives": ["备选空间ID1", "备选空间ID2"]
+}
+
+推荐原则：同类物品集中、常用物品易取、大小匹配。`;
+
+  const spacesInfo = spacesList.map(sp => ({
+    id: sp.id,
+    name: sp.name,
+    emoji: sp.emoji,
+    path: getSpacePath(sp.id).map(p => p.name).join(' > '),
+  }));
+
+  return callClaude(systemPrompt,
+    `物品信息：${JSON.stringify(item)}\n\n现有空间：${JSON.stringify(spacesInfo)}`
+  );
+}
+
+async function searchByPhoto(base64) {
+  const itemsList = Object.values(state.items).map(it => ({
+    id: it.id, name: it.name, color: it.color, tags: it.tags, emoji: it.emoji,
+  }));
+
+  const systemPrompt = `用户拍了一张物品图片，想在已有的收纳记录中找到它。返回严格 JSON。
+
+返回格式：
+{
+  "identified": { "name": "...", "color": "..." },
+  "match_item_ids": ["最可能匹配的已有物品ID列表，按相似度排序，最多3个"]
+}`;
+
+  return callClaude(systemPrompt, [
+    { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
+    { type: 'text', text: `已有物品列表：${JSON.stringify(itemsList)}\n请找出最相似的物品ID` },
+  ]);
+}
+
+// ═══════════════════════════════════════
+// IMAGE UTILS
+// ═══════════════════════════════════════
+function imageToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        // Full base64 for API
+        const canvas = document.createElement('canvas');
+        const MAX = 1024;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+
+        // Thumbnail
+        const tc = document.createElement('canvas');
+        const TH = 120;
+        let tw = img.width, th = img.height;
+        if (tw > th) { th = Math.round(th * TH / tw); tw = TH; }
+        else { tw = Math.round(tw * TH / th); th = TH; }
+        tc.width = tw; tc.height = th;
+        tc.getContext('2d').drawImage(img, 0, 0, tw, th);
+        const thumb = tc.toDataURL('image/jpeg', 0.7);
+
+        resolve({ base64, thumb });
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ═══════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════
+function toggleActionSheet() {
+  const fab = document.getElementById('fab');
+  const overlay = document.getElementById('overlay');
+  const sheet = document.getElementById('action-sheet');
+  fab.classList.toggle('open');
+  overlay.classList.toggle('active');
+  sheet.classList.toggle('active');
+}
+
+function closeActionSheet() {
+  document.getElementById('fab').classList.remove('open');
+  document.getElementById('overlay').classList.remove('active');
+  document.getElementById('action-sheet').classList.remove('active');
+}
+
+function openDialog(id) {
+  document.getElementById(id).classList.add('active');
+}
+function closeDialog(id) {
+  document.getElementById(id).classList.remove('active');
+}
+
+let miniSheetEl = null;
+function openMiniSheet(actions) {
+  if (miniSheetEl) miniSheetEl.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay active';
+  const sheet = document.createElement('div');
+  sheet.className = 'action-sheet active';
+  sheet.innerHTML = `<div class="sheet-handle"></div>` +
+    actions.map(a => `<div class="sheet-btn" style="${a.danger ? 'color:var(--danger)' : ''}">${a.label}</div>`).join('');
+  document.body.appendChild(overlay);
+  document.body.appendChild(sheet);
+  miniSheetEl = sheet;
+  const miniOverlay = overlay;
+
+  const close = () => { sheet.remove(); overlay.remove(); miniSheetEl = null; };
+  overlay.onclick = close;
+  sheet.querySelectorAll('.sheet-btn').forEach((btn, i) => {
+    btn.onclick = () => { close(); actions[i].action(); };
+  });
+}
+
+function renderEmojiPicker(containerId, emojis, selected) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = emojis.map(e =>
+    `<button class="emoji-pick-btn ${e === selected ? 'selected' : ''}" onclick="pickEmoji('${containerId}',this)">${e}</button>`
+  ).join('');
+}
+
+function pickEmoji(containerId, btn) {
+  document.querySelectorAll(`#${containerId} .emoji-pick-btn`).forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function getSelectedEmoji(containerId) {
+  const sel = document.querySelector(`#${containerId} .emoji-pick-btn.selected`);
+  return sel ? sel.textContent : null;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function showLoading(text = '处理中…') {
+  document.getElementById('loading-text').textContent = text;
+  document.getElementById('loading').classList.add('active');
+}
+
+function hideLoading() {
+  document.getElementById('loading').classList.remove('active');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════
+function exportData() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `storage-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data.spaces || !data.items) throw new Error('格式错误');
+        state = data;
+        saveState();
+        showToast('数据已恢复');
+        navigate('home');
+      } catch(err) {
+        showToast('导入失败：格式不正确');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadState();
+  const key = getApiKey();
+  if (!key) {
+    navigate('config');
+  } else {
+    navigate('home');
+  }
+
+  // Reset scan queue when entering scan view
+  document.getElementById('view-scan').addEventListener('transitionend', () => {});
+
+  // Close action sheet on back navigation
+  window.addEventListener('popstate', closeActionSheet);
+});
+</script>
+</body>
+</html>
