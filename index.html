@@ -138,41 +138,35 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
 .sheet-btn-icon { font-size: 22px; width: 36px; text-align: center; }
 .sheet-btn-label { font-size: 17px; }
 
-/* ── Scan view ── */
+/* ── Scan view (streaming) ── */
 #view-scan { background: #000; display: none; flex-direction: column; }
 #view-scan.active { display: flex; }
-.scan-header { padding: calc(var(--safe-top) + 16px) 20px 16px; display: flex; align-items: center; gap: 12px; }
-.scan-close { color: #fff; background: rgba(255,255,255,0.15); border: none; border-radius: 20px; width: 32px; height: 32px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.scan-header-title { color: #fff; font-size: 17px; font-weight: 600; flex: 1; }
-
-.scan-viewport { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
-.scan-frame { width: min(280px, 70vw); aspect-ratio: 1; position: relative; }
-.scan-corner { position: absolute; width: 24px; height: 24px; border-color: #00E676; border-style: solid; }
-.scan-corner.tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 4px; }
-.scan-corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
-.scan-corner.bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
-.scan-corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
-.scan-line { position: absolute; left: 3px; right: 3px; height: 2px; background: linear-gradient(90deg, transparent, #00E676, transparent); animation: scanMove 2s linear infinite; }
-@keyframes scanMove { 0%{top:3px} 100%{top:calc(100% - 5px)} }
-.scan-hint { color: rgba(255,255,255,0.6); font-size: 13px; text-align: center; margin-top: 16px; }
-
-.scan-processing { position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-.scan-spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.scan-processing-text { color: #fff; font-size: 15px; }
-
-.scan-queue { padding: 16px 20px; background: rgba(255,255,255,0.08); }
-.scan-queue-label { color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 10px; }
-.scan-queue-scroll { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; }
-.scan-queue-scroll::-webkit-scrollbar { display: none; }
-.scan-queue-item { background: rgba(255,255,255,0.12); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 70px; flex-shrink: 0; }
-.scan-queue-emoji { font-size: 24px; }
-.scan-queue-name { color: #fff; font-size: 11px; text-align: center; max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.scan-footer { padding: 16px 20px calc(var(--safe-bottom) + 20px); display: flex; flex-direction: column; gap: 10px; }
-.scan-camera-btn { background: #fff; color: #000; border: none; border-radius: var(--r-btn); padding: 16px; font-size: 16px; font-weight: 600; font-family: var(--font); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.scan-confirm-btn { background: var(--accent2); color: #fff; border: none; border-radius: var(--r-btn); padding: 16px; font-size: 16px; font-weight: 600; font-family: var(--font); cursor: pointer; display: none; }
-.scan-confirm-btn.visible { display: block; }
+.scan-top { height: 52vh; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+.scan-preview-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.75; }
+.scan-placeholder-icon { font-size: 52px; text-align: center; }
+.scan-placeholder-hint { color: rgba(255,255,255,0.45); font-size: 13px; text-align: center; margin-top: 8px; }
+.scan-shutter-wrap { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); }
+.scan-shutter { width: 70px; height: 70px; border-radius: 50%; background: rgba(255,255,255,0.18); border: 3px solid #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.scan-shutter:active .scan-shutter-inner { transform: scale(0.85); }
+.scan-shutter-inner { width: 54px; height: 54px; border-radius: 50%; background: #fff; transition: transform 0.1s; }
+.scan-x { position: absolute; top: calc(var(--safe-top) + 12px); left: 16px; background: rgba(0,0,0,0.45); border: none; color: #fff; width: 34px; height: 34px; border-radius: 50%; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.scan-count-badge { position: absolute; top: calc(var(--safe-top) + 12px); right: 16px; background: rgba(0,0,0,0.45); color: #fff; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px; }
+.scan-bottom { flex: 1; background: var(--bg); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.scan-bottom-hd { padding: 10px 20px 6px; font-size: 12px; color: var(--text2); font-weight: 500; }
+.scan-card { margin: 0 16px 10px; background: var(--card); border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: center; }
+.scan-card-thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: #eee; }
+.scan-card-body { flex: 1; min-width: 0; }
+.scan-card-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-card-meta { font-size: 12px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-card-space { font-size: 11px; color: var(--accent); margin-top: 3px; }
+.scan-card-processing .scan-card-name { color: var(--text2); animation: pulse 1.2s ease-in-out infinite; }
+.scan-card-error .scan-card-name { color: #FF3B30; }
+.scan-card-btn { border: none; border-radius: 8px; padding: 6px 11px; font-size: 12px; font-weight: 500; cursor: pointer; flex-shrink: 0; white-space: nowrap; font-family: var(--font); }
+.scan-card-btn.primary { background: var(--accent); color: #fff; }
+.scan-card-btn.ghost { background: var(--border); color: var(--text); }
+.scan-empty { padding: 32px 20px; text-align: center; color: var(--text2); font-size: 14px; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+@keyframes spin { to{transform:rotate(360deg)} }
 
 /* ── Assign view ── */
 #view-assign { padding-bottom: calc(var(--safe-bottom) + 100px); }
@@ -354,35 +348,27 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
 
 <!-- ───────────── Scan View ───────────── -->
 <div id="view-scan" class="view">
-  <div class="scan-header">
-    <button class="scan-close" onclick="navigate('home')">✕</button>
-    <div class="scan-header-title">扫描添加物品</div>
-  </div>
-  <div class="scan-viewport">
-    <div>
-      <div class="scan-frame">
-        <div class="scan-corner tl"></div>
-        <div class="scan-corner tr"></div>
-        <div class="scan-corner bl"></div>
-        <div class="scan-corner br"></div>
-        <div class="scan-line" id="scan-line"></div>
+  <!-- 上半：相机区域 -->
+  <div class="scan-top">
+    <img id="scan-preview-img" class="scan-preview-img" style="display:none">
+    <div id="scan-placeholder">
+      <div class="scan-placeholder-icon">📷</div>
+      <div class="scan-placeholder-hint">点击快门连续拍照</div>
+    </div>
+    <button class="scan-x" onclick="navigate('home')">✕</button>
+    <div class="scan-count-badge" id="scan-count-badge" style="display:none"></div>
+    <div class="scan-shutter-wrap">
+      <div class="scan-shutter" onclick="triggerCamera()">
+        <div class="scan-shutter-inner"></div>
       </div>
-      <div class="scan-hint">拍摄物品进行识别</div>
     </div>
-    <div class="scan-processing" id="scan-processing" style="display:none">
-      <div class="scan-spinner"></div>
-      <div class="scan-processing-text">AI 识别中…</div>
-    </div>
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleCameraInput(event)">
   </div>
-  <div class="scan-queue" id="scan-queue" style="display:none">
-    <div class="scan-queue-label">待分配队列</div>
-    <div class="scan-queue-scroll" id="scan-queue-scroll"></div>
+  <!-- 下半：处理队列 -->
+  <div class="scan-bottom">
+    <div class="scan-bottom-hd" id="scan-bottom-hd">拍照后物品会在这里实时更新</div>
+    <div id="scan-queue-list"></div>
   </div>
-  <div class="scan-footer">
-    <button class="scan-camera-btn" onclick="triggerCamera()">📷 拍照识别</button>
-    <button class="scan-confirm-btn" id="scan-confirm-btn" onclick="goToAssign()">确认，开始分配位置</button>
-  </div>
-  <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleCameraInput(event)">
 </div>
 
 <!-- ───────────── Assign View ───────────── -->
@@ -562,10 +548,11 @@ function loadState() {
   } catch(e) { state = { spaces: {}, items: {}, version: 1 }; }
 }
 
-function getApiKey() { return localStorage.getItem(API_KEY_KEY) || ''; }
+function sanitizeKey(k) { return (k || '').replace(/[^\x20-\x7E]/g, '').trim(); }
+function getApiKey() { return sanitizeKey(localStorage.getItem(API_KEY_KEY)); }
 function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || 'https://api.anthropic.com').replace(/\/$/, ''); }
 function getProvider() { return localStorage.getItem(API_PROVIDER_KEY) || 'claude'; }
-function getQwenKey() { return localStorage.getItem(QWEN_KEY_KEY) || ''; }
+function getQwenKey() { return sanitizeKey(localStorage.getItem(QWEN_KEY_KEY)); }
 
 function switchProviderTab(p) {
   document.getElementById('tab-claude').classList.toggle('active', p === 'claude');
@@ -577,11 +564,12 @@ function switchProviderTab(p) {
 function saveApiKey() {
   const provider = document.getElementById('tab-qwen').classList.contains('active') ? 'qwen' : 'claude';
   if (provider === 'qwen') {
-    const k = document.getElementById('qwen-key-input').value.trim();
+    const k = sanitizeKey(document.getElementById('qwen-key-input').value);
     if (!k) { showToast('请输入通义千问 API Key'); return; }
+    if (!/^sk-/.test(k)) { showToast('Key 格式不对，应以 sk- 开头'); return; }
     localStorage.setItem(QWEN_KEY_KEY, k);
   } else {
-    const k = document.getElementById('api-key-input').value.trim();
+    const k = sanitizeKey(document.getElementById('api-key-input').value);
     if (!k) { showToast('请输入 API Key'); return; }
     const b = document.getElementById('api-base-input').value.trim();
     localStorage.setItem(API_KEY_KEY, k);
@@ -621,7 +609,7 @@ function getAllSpacesFlat(parentId = null, depth = 0) {
 }
 
 function totalItemCount() { return Object.keys(state.items).length; }
-function totalSpaceCount() { return Object.keys(state.spaces).length; }
+function totalSpaceCount() { return Object.values(state.spaces).filter(s => s.id !== UNORG_ID).length; }
 
 // ═══════════════════════════════════════
 // ROUTING
@@ -643,6 +631,13 @@ function navigate(view, params = {}) {
     document.getElementById('api-key-input').value = getApiKey();
     document.getElementById('api-base-input').value = getApiBase();
     document.getElementById('qwen-key-input').value = getQwenKey();
+  }
+  else if (view === 'scan') {
+    // 每次进入重置队列和预览
+    scanQueue = [];
+    document.getElementById('scan-preview-img').style.display = 'none';
+    document.getElementById('scan-placeholder').style.display = 'block';
+    renderScanQueue();
   }
   else if (view === 'space') renderSpaceDetail(params.spaceId);
   else if (view === 'search') renderSearch('');
@@ -667,14 +662,32 @@ function renderHome() {
   document.getElementById('home-subtitle').textContent = `${totalSpaces} 个空间 · ${totalItems} 件物品`;
 
   const list = document.getElementById('home-space-list');
-  const rootSpaces = Object.values(state.spaces).filter(s => !s.parentId);
+  const rootSpaces = Object.values(state.spaces).filter(s => !s.parentId && s.id !== UNORG_ID);
+  const unorg = state.spaces[UNORG_ID];
+  const unorgCount = unorg ? countItems(UNORG_ID) : 0;
 
-  if (rootSpaces.length === 0) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-emoji">📦</div><div class="empty-text">还没有收纳空间</div><div class="empty-hint">点击右下角 + 新建空间</div></div>`;
+  let html = '';
+
+  // 未规整空间提示条（有物品时显示）
+  if (unorgCount > 0) {
+    html += `<div class="space-card" style="border-left:3px solid #FF9500" onclick="navigate('space',{spaceId:'${UNORG_ID}'})">
+      <div class="space-card-top">
+        <div class="space-card-emoji">📦</div>
+        <div class="space-card-info">
+          <div class="space-card-name">未规整</div>
+          <div class="space-card-count" style="color:#FF9500">${unorgCount} 件待整理</div>
+        </div>
+        <div class="space-card-arrow">›</div>
+      </div>
+    </div>`;
+  }
+
+  if (rootSpaces.length === 0 && unorgCount === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-emoji">📷</div><div class="empty-text">点击右下角 + 开始扫描</div><div class="empty-hint">物品会先进入「未规整」空间</div></div>`;
     return;
   }
 
-  list.innerHTML = rootSpaces.map(sp => {
+  html += rootSpaces.map(sp => {
     const n = countItems(sp.id);
     const children = (sp.childIds || []).slice(0, 4).map(cid => {
       const c = state.spaces[cid];
@@ -693,6 +706,8 @@ function renderHome() {
       ${children ? `<div class="space-card-children">${children}</div>` : ''}
     </div>`;
   }).join('');
+
+  list.innerHTML = html;
 }
 
 // ═══════════════════════════════════════
@@ -999,66 +1014,144 @@ function moveItemTo(spaceId) {
 }
 
 // ═══════════════════════════════════════
-// SCAN & CAMERA
+// UNORGANIZED SPACE
 // ═══════════════════════════════════════
+const UNORG_ID = '__unorganized__';
+
+function ensureUnorganizedSpace() {
+  if (!state.spaces[UNORG_ID]) {
+    state.spaces[UNORG_ID] = {
+      id: UNORG_ID, name: '未规整', emoji: '📦',
+      parentId: null, childIds: [], itemIds: [],
+    };
+    saveState();
+  }
+  return UNORG_ID;
+}
+
+// ═══════════════════════════════════════
+// SCAN & CAMERA (streaming)
+// ═══════════════════════════════════════
+// scanQueue: [{ id, thumbUrl, status:'processing'|'done'|'error', itemId, error }]
+
 function triggerCamera() {
-  document.getElementById('camera-input').click();
+  const input = document.getElementById('camera-input');
+  input.value = '';
+  input.click();
 }
 
 async function handleCameraInput(event) {
   const file = event.target.files[0];
   if (!file) return;
-  event.target.value = '';
+  event.target.value = ''; // 立即重置，允许连续拍照
 
-  document.getElementById('scan-processing').style.display = 'flex';
-  document.getElementById('scan-line').style.animationPlayState = 'paused';
+  const queueId = generateId();
+  const thumbUrl = URL.createObjectURL(file);
 
+  // 立刻更新预览和队列
+  const previewImg = document.getElementById('scan-preview-img');
+  previewImg.src = thumbUrl;
+  previewImg.style.display = 'block';
+  document.getElementById('scan-placeholder').style.display = 'none';
+
+  scanQueue.unshift({ id: queueId, thumbUrl, status: 'processing', itemId: null, error: null });
+  renderScanQueue();
+
+  // 后台识别，不阻塞快门
   try {
     const { base64, thumb } = await imageToBase64(file);
     const result = await identifyItem(base64);
-    result.image_thumb = thumb;
-    result.id = generateId();
-    scanQueue.push(result);
-    renderScanQueue();
+
+    const unorgId = ensureUnorganizedSpace();
+    const itemId = generateId();
+    const newItem = {
+      id: itemId,
+      name: result.name || '未知物品',
+      emoji: result.emoji || '📦',
+      brand: result.brand || '',
+      color: result.color || '',
+      size: result.size || 'medium',
+      size_cn: result.size_cn || '中等',
+      tags: result.tags || [],
+      description: result.description || '',
+      spaceId: unorgId,
+      addedAt: new Date().toISOString(),
+      image_thumb: thumb,
+    };
+    state.items[itemId] = newItem;
+    state.spaces[unorgId].itemIds.push(itemId);
+    saveState();
+
+    const entry = scanQueue.find(e => e.id === queueId);
+    if (entry) { entry.status = 'done'; entry.itemId = itemId; }
   } catch(e) {
-    showToast('识别失败：' + (e.message || '未知错误'));
-  } finally {
-    document.getElementById('scan-processing').style.display = 'none';
-    document.getElementById('scan-line').style.animationPlayState = 'running';
+    const entry = scanQueue.find(e => e.id === queueId);
+    if (entry) { entry.status = 'error'; entry.error = e.message || '识别失败'; }
   }
-}
 
-function renderScanQueue() {
-  const queue = document.getElementById('scan-queue');
-  const scroll = document.getElementById('scan-queue-scroll');
-  const confirmBtn = document.getElementById('scan-confirm-btn');
-
-  if (scanQueue.length === 0) {
-    queue.style.display = 'none';
-    confirmBtn.classList.remove('visible');
-    return;
-  }
-  queue.style.display = 'block';
-  confirmBtn.classList.add('visible');
-  confirmBtn.textContent = `确认 ${scanQueue.length} 件，开始分配位置`;
-
-  scroll.innerHTML = scanQueue.map((item, i) =>
-    `<div class="scan-queue-item" onclick="removeScanItem(${i})">
-      <div class="scan-queue-emoji">${item.emoji || '📦'}</div>
-      <div class="scan-queue-name">${escapeHtml(item.name)}</div>
-    </div>`
-  ).join('');
-}
-
-function removeScanItem(index) {
-  scanQueue.splice(index, 1);
   renderScanQueue();
 }
 
-function goToAssign() {
-  if (scanQueue.length === 0) { showToast('请先扫描物品'); return; }
-  navigate('assign');
+function renderScanQueue() {
+  const list = document.getElementById('scan-queue-list');
+  const hd = document.getElementById('scan-bottom-hd');
+  const badge = document.getElementById('scan-count-badge');
+  const done = scanQueue.filter(e => e.status === 'done').length;
+  const total = scanQueue.length;
+
+  if (total === 0) {
+    hd.textContent = '拍照后物品会在这里实时更新';
+    badge.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  hd.textContent = `已扫描 ${total} 件，已入库 ${done} 件`;
+  badge.textContent = total;
+  badge.style.display = '';
+
+  list.innerHTML = scanQueue.map(entry => {
+    if (entry.status === 'processing') {
+      return `<div class="scan-card scan-card-processing">
+        <img class="scan-card-thumb" src="${entry.thumbUrl}">
+        <div class="scan-card-body">
+          <div class="scan-card-name">识别中…</div>
+          <div class="scan-card-meta">AI 正在分析图片</div>
+        </div>
+      </div>`;
+    }
+    if (entry.status === 'error') {
+      return `<div class="scan-card scan-card-error">
+        <img class="scan-card-thumb" src="${entry.thumbUrl}">
+        <div class="scan-card-body">
+          <div class="scan-card-name">识别失败</div>
+          <div class="scan-card-meta">${escapeHtml(entry.error)}</div>
+        </div>
+        <button class="scan-card-btn ghost" onclick="retryScanEntry('${entry.id}')">重试</button>
+      </div>`;
+    }
+    const item = state.items[entry.itemId];
+    if (!item) return '';
+    const spaceName = state.spaces[item.spaceId]?.name || '未规整';
+    return `<div class="scan-card">
+      <img class="scan-card-thumb" src="${entry.thumbUrl}">
+      <div class="scan-card-body" onclick="navigate('item',{itemId:'${item.id}'})">
+        <div class="scan-card-name">${item.emoji} ${escapeHtml(item.name)}</div>
+        <div class="scan-card-meta">${[item.color, item.size_cn].filter(Boolean).join(' · ')}</div>
+        <div class="scan-card-space">📦 ${escapeHtml(spaceName)}</div>
+      </div>
+      <button class="scan-card-btn primary" onclick="moveItemSheet('${item.id}')">移动</button>
+    </div>`;
+  }).join('');
 }
+
+async function retryScanEntry(queueId) {
+  const entry = scanQueue.find(e => e.id === queueId);
+  if (!entry) return;
+  // 重新触发相机
+  showToast('请重新拍摄这件物品');
+}
+
+function goToAssign() {} // 保留兼容，已废弃
 
 // ═══════════════════════════════════════
 // ASSIGN VIEW
@@ -1634,17 +1727,13 @@ function importData() {
 // ═══════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
-  const key = getApiKey();
+  ensureUnorganizedSpace();
+  const key = getApiKey() || getQwenKey();
   if (!key) {
     navigate('config');
   } else {
     navigate('home');
   }
-
-  // Reset scan queue when entering scan view
-  document.getElementById('view-scan').addEventListener('transitionend', () => {});
-
-  // Close action sheet on back navigation
   window.addEventListener('popstate', closeActionSheet);
 });
 </script>
