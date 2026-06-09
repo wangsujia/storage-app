@@ -300,6 +300,37 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
 .provider-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
 .provider-tab { flex: 1; padding: 10px 0; border: 1.5px solid var(--border); border-radius: var(--r-btn); background: transparent; color: var(--text-secondary); font-size: 14px; font-weight: 500; cursor: pointer; }
 .provider-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── Floor Plan view ── */
+#view-floorplan { padding-bottom: calc(var(--safe-bottom) + 80px); }
+.fp-section { padding: 0 20px; margin-bottom: 20px; }
+.fp-section-label { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.fp-photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fp-photo-cell { aspect-ratio: 1; border-radius: 12px; overflow: hidden; position: relative; background: var(--card); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.fp-photo-cell img { width: 100%; height: 100%; object-fit: cover; }
+.fp-photo-cell .fp-remove { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; font-size: 13px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+.fp-add-cell { color: var(--text2); font-size: 28px; }
+.fp-generate-btn { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: var(--r-btn); padding: 15px; font-size: 16px; font-weight: 600; font-family: var(--font); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.fp-generate-btn:disabled { background: var(--border); color: var(--text2); cursor: not-allowed; }
+.fp-result-card { background: var(--card); border-radius: var(--r-card); padding: 16px; }
+.fp-result-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+.fp-svg-wrap { width: 100%; border-radius: 10px; overflow: hidden; background: #f8f8f0; }
+.fp-svg-wrap svg { width: 100%; height: auto; display: block; }
+.fp-svg-wrap .fp-room-hit { cursor: pointer; transition: opacity 0.15s; }
+.fp-svg-wrap .fp-room-hit:hover { opacity: 0.7; }
+.fp-legend { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.fp-legend-row { display: flex; align-items: center; gap: 10px; }
+.fp-legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.fp-legend-name { font-size: 14px; font-weight: 500; flex: 1; }
+.fp-legend-link { font-size: 13px; color: var(--accent); cursor: pointer; }
+.fp-hint { font-size: 12px; color: var(--text2); text-align: center; margin-top: 10px; line-height: 1.6; }
+.fp-room-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-radius: 20px 20px 0 0; padding: 20px 24px calc(var(--safe-bottom)+24px); z-index: 200; display: none; flex-direction: column; gap: 10px; }
+.fp-room-sheet.open { display: flex; }
+.fp-room-sheet-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.fp-room-sheet-sub { font-size: 13px; color: var(--text2); margin-bottom: 4px; }
+.fp-room-option { padding: 13px 16px; border-radius: var(--r-btn); background: var(--bg); font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 10px; border: 2px solid transparent; }
+.fp-room-option.selected { border-color: var(--accent); background: rgba(0,122,255,0.06); }
+.fp-room-options-scroll { max-height: 40vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
 </style>
 </head>
 <body>
@@ -509,6 +540,47 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
   </div>
 </div>
 
+<!-- ───────────── Floor Plan View ───────────── -->
+<div id="view-floorplan" class="view">
+  <div class="nav-bar">
+    <button class="nav-back" onclick="navigate('home')">‹ 返回</button>
+    <div class="nav-title">📐 户型平面图</div>
+    <button class="nav-action" id="fp-save-btn" onclick="saveFloorplan()" style="display:none">保存</button>
+  </div>
+
+  <div class="fp-section">
+    <div class="fp-section-label">拍摄各房间照片（最多6张）</div>
+    <div class="fp-photo-grid" id="fp-photo-grid"></div>
+    <div class="fp-hint">建议：客厅、卧室、厨房各拍一张<br>站在房间门口向内拍效果最佳</div>
+  </div>
+
+  <div class="fp-section">
+    <button class="fp-generate-btn" id="fp-generate-btn" onclick="generateFloorplan()" disabled>
+      <span>✨</span><span>AI 生成平面图</span>
+    </button>
+  </div>
+
+  <div class="fp-section" id="fp-result-section" style="display:none">
+    <div class="fp-result-card">
+      <div class="fp-result-title">户型平面草图</div>
+      <div class="fp-svg-wrap" id="fp-svg-wrap"></div>
+      <div class="fp-hint" id="fp-accuracy-hint">📏 AI 估算草图，比例仅供参考<br>点击房间可与已有空间关联</div>
+      <div class="fp-legend" id="fp-legend"></div>
+    </div>
+  </div>
+
+  <input type="file" id="fp-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handleFpPhotoInput(event)">
+</div>
+
+<!-- ───────────── Floor Plan Room Link Sheet ───────────── -->
+<div class="overlay" id="fp-room-overlay" onclick="closeFpRoomSheet()"></div>
+<div class="fp-room-sheet" id="fp-room-sheet">
+  <div class="fp-room-sheet-title" id="fp-room-sheet-title">关联空间</div>
+  <div class="fp-room-sheet-sub">将此房间与收纳空间关联，方便快速定位物品</div>
+  <div class="fp-room-options-scroll" id="fp-room-options"></div>
+  <button class="btn-primary" onclick="closeFpRoomSheet()" style="background:var(--border);color:var(--text);margin-top:4px">取消</button>
+</div>
+
 <!-- ───────────── Bottom Bar ───────────── -->
 <div class="bottom-bar" id="bottom-bar">
   <div class="search-input-wrap">
@@ -537,6 +609,10 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
   <div class="sheet-btn" onclick="closeActionSheet(); openManualAdd()">
     <span class="sheet-btn-icon">✏️</span>
     <span class="sheet-btn-label">手动添加物品</span>
+  </div>
+  <div class="sheet-btn" onclick="closeActionSheet(); navigate('floorplan')">
+    <span class="sheet-btn-icon">📐</span>
+    <span class="sheet-btn-label">生成户型平面图</span>
   </div>
   <div class="sheet-btn" id="join-space-btn" onclick="closeActionSheet(); showJoinSheet()" style="display:none">
     <span class="sheet-btn-icon">🔗</span>
@@ -970,11 +1046,20 @@ function navigate(view, params = {}) {
 
   const bottomBar = document.getElementById('bottom-bar');
   const fab = document.getElementById('fab');
-  const hideBottom = ['scan', 'config', 'login'].includes(view);
+  const hideBottom = ['scan', 'config', 'login', 'floorplan'].includes(view);
   bottomBar.style.display = hideBottom ? 'none' : '';
-  fab.style.display = ['scan', 'config', 'assign', 'manual', 'login'].includes(view) ? 'none' : '';
+  fab.style.display = ['scan', 'config', 'assign', 'manual', 'login', 'floorplan'].includes(view) ? 'none' : '';
 
   if (view === 'home') renderHome();
+  else if (view === 'floorplan') {
+    fpPhotos = [];
+    document.getElementById('fp-result-section').style.display = 'none';
+    document.getElementById('fp-save-btn').style.display = 'none';
+    renderFpPhotoGrid();
+    // Restore saved rooms if any
+    const saved = loadFpData();
+    if (saved?.rooms) fpRooms = saved.rooms;
+  }
   else if (view === 'login') {
     document.getElementById('login-phone').value = '';
     document.getElementById('login-code').value = '';
@@ -2077,6 +2162,274 @@ function importData() {
     reader.readAsText(file);
   };
   input.click();
+}
+
+// ═══════════════════════════════════════
+// FLOOR PLAN
+// ═══════════════════════════════════════
+const ROOM_COLORS = ['#FFD6D6','#D6EDFF','#D6FFE0','#FFF3D6','#EDD6FF','#D6FFF3','#FFE8D6','#D6D6FF'];
+let fpPhotos = [];       // [{dataUrl, thumb}]
+let fpRooms = [];        // [{label, color, rect, linkedSpaceId}]
+let fpCurrentRoom = null;
+const FP_KEY = 'storage_fp_data';
+
+function saveFpData() {
+  try {
+    const payload = { rooms: fpRooms.map(r => ({ label: r.label, color: r.color, linkedSpaceId: r.linkedSpaceId || null })) };
+    localStorage.setItem(FP_KEY, JSON.stringify(payload));
+  } catch(e) {}
+}
+
+function loadFpData() {
+  try {
+    const raw = localStorage.getItem(FP_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return null;
+}
+
+function renderFpPhotoGrid() {
+  const grid = document.getElementById('fp-photo-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  fpPhotos.forEach((p, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'fp-photo-cell';
+    cell.innerHTML = `<img src="${p.thumb}"><button class="fp-remove" onclick="removeFpPhoto(${i})">✕</button>`;
+    grid.appendChild(cell);
+  });
+  if (fpPhotos.length < 6) {
+    const add = document.createElement('div');
+    add.className = 'fp-photo-cell';
+    add.innerHTML = '<span class="fp-add-cell">+</span>';
+    add.onclick = () => document.getElementById('fp-photo-input').click();
+    grid.appendChild(add);
+  }
+  const btn = document.getElementById('fp-generate-btn');
+  if (btn) btn.disabled = fpPhotos.length === 0;
+}
+
+function handleFpPhotoInput(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    // make thumb (max 400px)
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const scale = Math.min(1, 400 / Math.max(img.width, img.height));
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      fpPhotos.push({ dataUrl, thumb: canvas.toDataURL('image/jpeg', 0.7) });
+      renderFpPhotoGrid();
+    };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeFpPhoto(idx) {
+  fpPhotos.splice(idx, 1);
+  renderFpPhotoGrid();
+}
+
+async function generateFloorplan() {
+  if (fpPhotos.length === 0) { showToast('请先拍摄房间照片'); return; }
+  const btn = document.getElementById('fp-generate-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span><span>AI 分析中…</span>';
+  showLoading('正在生成平面图…');
+  try {
+    const svgText = await callFloorplanVLM();
+    const parsed = extractSVG(svgText);
+    if (!parsed) throw new Error('未能从AI回复中提取SVG，请重试');
+    fpRooms = parseSVGRooms(parsed);
+    renderFloorplanResult(parsed);
+    document.getElementById('fp-result-section').style.display = '';
+    document.getElementById('fp-save-btn').style.display = '';
+    saveFpData();
+  } catch(e) {
+    showToast('生成失败：' + (e.message || '请重试'));
+  } finally {
+    hideLoading();
+    btn.disabled = false;
+    btn.innerHTML = '<span>✨</span><span>重新生成</span>';
+  }
+}
+
+async function callFloorplanVLM() {
+  const systemPrompt = `你是室内设计助手。根据用户提供的家庭室内照片，生成一份简洁的SVG户型平面草图。
+规则：
+1. SVG属性：viewBox="0 0 400 300"，不要写width/height属性
+2. 每个房间用一个<rect>表示，必须包含属性 data-room="房间中文名"（如客厅、主卧、次卧、厨房、卫生间、阳台、走廊）
+3. 每个<rect>必须有fill属性，用柔和浅色（如 #FFD6D6 #D6EDFF #D6FFE0 #FFF3D6 等），stroke="#999" stroke-width="1.5"
+4. 每个房间中心用<text>标注中文名，font-size="13" text-anchor="middle" dominant-baseline="middle" fill="#333"
+5. 房间要紧密排列，不要留大片空白
+6. 只返回SVG代码，从<svg开始到</svg>结束，绝对不要有任何其他文字`;
+
+  const textPart = { type: 'text', text: '请根据以上' + fpPhotos.length + '张照片，生成这个家庭的SVG户型平面草图。' };
+
+  if (getProvider() === 'qwen') {
+    const msgContent = [
+      ...fpPhotos.map(p => ({
+        type: 'image_url',
+        image_url: { url: p.dataUrl }
+      })),
+      { type: 'text', text: systemPrompt + '\n\n' + textPart.text }
+    ];
+    const key = getQwenKey();
+    if (!key) throw new Error('请先设置通义千问 API Key');
+    const res = await fetch(QWEN_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + sanitizeKey(key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: QWEN_MODEL, messages: [{ role: 'user', content: msgContent }], max_tokens: 2000 })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || ('HTTP ' + res.status));
+    return data.choices?.[0]?.message?.content || '';
+  } else {
+    // Claude
+    const userContent = [
+      ...fpPhotos.map(p => {
+        const [header, b64] = p.dataUrl.split(',');
+        const mediaType = header.match(/:(.*?);/)[1];
+        return { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } };
+      }),
+      textPart
+    ];
+    const apiKey = getApiKey();
+    const apiBase = getApiBase();
+    if (!apiKey) throw new Error('请先设置 Claude API Key');
+    const isRelay = apiBase && apiBase !== 'https://api.anthropic.com';
+    if (isRelay) {
+      const res = await fetch(apiBase.replace(/\/$/, '') + '/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': sanitizeKey(apiKey),
+          'Authorization': 'Bearer ' + sanitizeKey(apiKey),
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-calls': 'true',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, system: systemPrompt, messages: [{ role: 'user', content: userContent }] })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || ('HTTP ' + res.status));
+      return data.content?.[0]?.text || '';
+    } else {
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, apiBase, systemPrompt, userContent })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || ('HTTP ' + res.status));
+      return data.content?.[0]?.text || '';
+    }
+  }
+}
+
+function extractSVG(text) {
+  // Try code block first
+  const blockMatch = text.match(/```(?:svg)?\s*([\s\S]*?```)/i);
+  if (blockMatch) {
+    const inner = blockMatch[1].replace(/```\s*$/, '').trim();
+    if (inner.includes('<svg')) return inner;
+  }
+  // Try raw SVG tag
+  const rawMatch = text.match(/<svg[\s\S]*<\/svg>/i);
+  if (rawMatch) return rawMatch[0];
+  return null;
+}
+
+function parseSVGRooms(svgText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, 'image/svg+xml');
+  const rooms = [];
+  const rects = doc.querySelectorAll('rect[data-room]');
+  rects.forEach((rect, i) => {
+    rooms.push({
+      label: rect.getAttribute('data-room') || ('房间' + (i + 1)),
+      color: rect.getAttribute('fill') || ROOM_COLORS[i % ROOM_COLORS.length],
+      linkedSpaceId: null
+    });
+  });
+  return rooms;
+}
+
+function renderFloorplanResult(svgText) {
+  const wrap = document.getElementById('fp-svg-wrap');
+  if (!wrap) return;
+
+  // Inject click handlers: add class and onclick to each rect[data-room]
+  const enriched = svgText.replace(/<rect([^>]*data-room="([^"]*)"[^>]*)>/gi, (match, attrs, roomName) => {
+    return `<rect${attrs} class="fp-room-hit" onclick="openFpRoomSheet('${roomName.replace(/'/g, '&apos;')}')">`;
+  });
+  wrap.innerHTML = enriched;
+
+  renderFpLegend();
+}
+
+function renderFpLegend() {
+  const legend = document.getElementById('fp-legend');
+  if (!legend || fpRooms.length === 0) return;
+  legend.innerHTML = fpRooms.map(r => {
+    const space = r.linkedSpaceId ? state.spaces[r.linkedSpaceId] : null;
+    const linkText = space ? `${space.emoji} ${space.name}` : '点击关联空间';
+    return `<div class="fp-legend-row">
+      <div class="fp-legend-dot" style="background:${r.color}"></div>
+      <div class="fp-legend-name">${r.label}</div>
+      <div class="fp-legend-link" onclick="openFpRoomSheet('${r.label}')">${linkText}</div>
+    </div>`;
+  }).join('');
+}
+
+function openFpRoomSheet(roomLabel) {
+  fpCurrentRoom = roomLabel;
+  const room = fpRooms.find(r => r.label === roomLabel);
+  document.getElementById('fp-room-sheet-title').textContent = '「' + roomLabel + '」关联空间';
+  const opts = document.getElementById('fp-room-options');
+  const spaces = Object.values(state.spaces).filter(s => s.id !== UNORG_ID);
+  if (spaces.length === 0) {
+    opts.innerHTML = '<div style="padding:16px;color:var(--text2);text-align:center">还没有创建任何空间<br>先回首页新建空间吧</div>';
+  } else {
+    opts.innerHTML = spaces.map(s => {
+      const sel = room?.linkedSpaceId === s.id ? 'selected' : '';
+      return `<div class="fp-room-option ${sel}" onclick="linkFpRoom('${s.id}')">
+        <span style="font-size:22px">${s.emoji}</span>
+        <span>${s.name}</span>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('fp-room-overlay').style.display = 'block';
+  document.getElementById('fp-room-sheet').classList.add('open');
+}
+
+function closeFpRoomSheet() {
+  document.getElementById('fp-room-overlay').style.display = 'none';
+  document.getElementById('fp-room-sheet').classList.remove('open');
+  fpCurrentRoom = null;
+}
+
+function linkFpRoom(spaceId) {
+  if (!fpCurrentRoom) return;
+  const room = fpRooms.find(r => r.label === fpCurrentRoom);
+  if (room) {
+    room.linkedSpaceId = spaceId;
+    saveFpData();
+    renderFpLegend();
+  }
+  closeFpRoomSheet();
+  showToast('已关联 ' + (state.spaces[spaceId]?.name || ''));
+}
+
+function saveFloorplan() {
+  saveFpData();
+  showToast('✅ 平面图已保存');
 }
 
 // ═══════════════════════════════════════
