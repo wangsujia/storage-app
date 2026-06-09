@@ -8,6 +8,13 @@
 <meta name="apple-mobile-web-app-title" content="收纳助手">
 <meta name="theme-color" content="#F2F0EB">
 <title>收纳助手</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+window.THREE = THREE; window.OrbitControls = OrbitControls;
+window._threeReady = true; window.dispatchEvent(new CustomEvent('three-ready'));
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@cloudbase/js-sdk/dist/cloudbase.full.js"></script>
 <style>
 :root {
@@ -314,10 +321,9 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
 .fp-generate-btn:disabled { background: var(--border); color: var(--text2); cursor: not-allowed; }
 .fp-result-card { background: var(--card); border-radius: var(--r-card); padding: 16px; }
 .fp-result-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
-.fp-svg-wrap { width: 100%; border-radius: 10px; overflow: hidden; background: #f8f8f0; }
-.fp-svg-wrap svg { width: 100%; height: auto; display: block; }
-.fp-svg-wrap .fp-room-hit { cursor: pointer; transition: opacity 0.15s; }
-.fp-svg-wrap .fp-room-hit:hover { opacity: 0.7; }
+.fp-canvas-wrap { width: 100%; border-radius: 10px; overflow: hidden; background: #f4f4ee; position: relative; min-height: 200px; }
+.fp-canvas-wrap canvas { width: 100% !important; height: 100% !important; display: block; touch-action: none; outline: none; }
+.fp-3d-hint { position: absolute; bottom: 8px; right: 10px; font-size: 11px; color: rgba(0,0,0,0.4); pointer-events: none; }
 .fp-legend { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .fp-legend-row { display: flex; align-items: center; gap: 10px; }
 .fp-legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
@@ -563,8 +569,10 @@ html, body { height: 100%; background: var(--bg); font-family: var(--font); colo
   <div class="fp-section" id="fp-result-section" style="display:none">
     <div class="fp-result-card">
       <div class="fp-result-title">户型平面草图</div>
-      <div class="fp-svg-wrap" id="fp-svg-wrap"></div>
-      <div class="fp-hint" id="fp-accuracy-hint">📏 AI 估算草图，比例仅供参考<br>点击房间可与已有空间关联</div>
+      <div class="fp-canvas-wrap" id="fp-canvas-wrap">
+        <div class="fp-3d-hint">拖动旋转 · 双指缩放</div>
+      </div>
+      <div class="fp-hint" id="fp-accuracy-hint">📏 AI 估算尺寸，比例仅供参考 · 点击房间可关联收纳空间</div>
       <div class="fp-legend" id="fp-legend"></div>
     </div>
   </div>
@@ -1052,13 +1060,11 @@ function navigate(view, params = {}) {
 
   if (view === 'home') renderHome();
   else if (view === 'floorplan') {
-    fpPhotos = [];
+    disposeFloorplan3D();
+    fpPhotos = []; fpRooms = [];
     document.getElementById('fp-result-section').style.display = 'none';
     document.getElementById('fp-save-btn').style.display = 'none';
     renderFpPhotoGrid();
-    // Restore saved rooms if any
-    const saved = loadFpData();
-    if (saved?.rooms) fpRooms = saved.rooms;
   }
   else if (view === 'login') {
     document.getElementById('login-phone').value = '';
@@ -2165,18 +2171,178 @@ function importData() {
 }
 
 // ═══════════════════════════════════════
-// FLOOR PLAN
+// FLOOR PLAN (3D — Three.js)
 // ═══════════════════════════════════════
 const ROOM_COLORS = ['#FFD6D6','#D6EDFF','#D6FFE0','#FFF3D6','#EDD6FF','#D6FFF3','#FFE8D6','#D6D6FF'];
-let fpPhotos = [];       // [{dataUrl, thumb}]
-let fpRooms = [];        // [{label, color, rect, linkedSpaceId}]
+let fpPhotos = [];    // [{dataUrl, thumb}]
+let fpRooms  = [];    // [{name, x, z, w, d, color, linkedSpaceId}]
 let fpCurrentRoom = null;
 const FP_KEY = 'storage_fp_data';
 
+// Three.js handles
+let fp3dRenderer = null, fp3dScene = null, fp3dCamera = null;
+let fp3dControls = null, fp3dAnimFrame = null, fp3dRaycaster = null;
+let fp3dMeshes = [];        // [{mesh, room}]
+let fp3dResizeObserver = null;
+
+function waitForThree() {
+  return new Promise(resolve => {
+    if (window._threeReady) { resolve(); return; }
+    window.addEventListener('three-ready', resolve, { once: true });
+  });
+}
+
+function disposeFloorplan3D() {
+  cancelAnimationFrame(fp3dAnimFrame); fp3dAnimFrame = null;
+  if (fp3dResizeObserver) { fp3dResizeObserver.disconnect(); fp3dResizeObserver = null; }
+  if (fp3dRenderer) {
+    fp3dRenderer.domElement.removeEventListener('pointerup', handleFp3dClick);
+    fp3dRenderer.dispose(); fp3dRenderer = null;
+  }
+  fp3dControls = null; fp3dMeshes = [];
+  const wrap = document.getElementById('fp-canvas-wrap');
+  if (wrap) {
+    // Keep the static hint div, remove only the canvas
+    const canvas = wrap.querySelector('canvas');
+    if (canvas) canvas.remove();
+  }
+}
+
+async function buildFloorplan3D(rooms) {
+  await waitForThree();
+  const THREE = window.THREE, OrbitControls = window.OrbitControls;
+  const wrap = document.getElementById('fp-canvas-wrap');
+  if (!wrap || !THREE) return;
+
+  disposeFloorplan3D();
+
+  // Size: fill width, 3:4 aspect
+  const W = Math.max(wrap.getBoundingClientRect().width, 280);
+  const H = Math.round(W * 0.65);
+  wrap.style.height = H + 'px';
+
+  // ── Scene ──
+  fp3dScene = new THREE.Scene();
+  fp3dScene.background = new THREE.Color(0xf4f4ee);
+  fp3dScene.fog = new THREE.Fog(0xf4f4ee, 30, 80);
+
+  fp3dCamera = new THREE.PerspectiveCamera(45, W / H, 0.1, 200);
+
+  fp3dRenderer = new THREE.WebGLRenderer({ antialias: true });
+  fp3dRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  fp3dRenderer.setSize(W, H);
+  fp3dRenderer.shadowMap.enabled = true;
+  fp3dRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Insert before the hint overlay
+  wrap.insertBefore(fp3dRenderer.domElement, wrap.firstChild);
+
+  // ── Lights ──
+  fp3dScene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  sun.position.set(20, 35, 20);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 100;
+  fp3dScene.add(sun);
+  fp3dScene.add(Object.assign(new THREE.DirectionalLight(0xcce8ff, 0.25), { position: { x: -10, y: 10, z: -10, set() {} } }));
+  const fill = new THREE.DirectionalLight(0xcce8ff, 0.25);
+  fill.position.set(-10, 10, -10); fp3dScene.add(fill);
+
+  // ── Bounds ──
+  let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+  rooms.forEach(r => { minX = Math.min(minX, r.x); minZ = Math.min(minZ, r.z); maxX = Math.max(maxX, r.x + r.w); maxZ = Math.max(maxZ, r.z + r.d); });
+  const totalW = maxX - minX, totalD = maxZ - minZ;
+  const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+
+  // ── Ground ──
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(totalW + 3, totalD + 3),
+    new THREE.MeshLambertMaterial({ color: 0xd0d0c0 })
+  );
+  ground.rotation.x = -Math.PI / 2; ground.position.set(cx, -0.01, cz); ground.receiveShadow = true;
+  fp3dScene.add(ground);
+
+  // ── Rooms ──
+  const WALL_H = 2.5;
+  fp3dMeshes = [];
+  rooms.forEach((room, i) => {
+    const col = new THREE.Color(room.color || ROOM_COLORS[i % ROOM_COLORS.length]);
+
+    // Room box (slightly inset so walls visible between rooms)
+    const geo = new THREE.BoxGeometry(Math.max(room.w - 0.06, 0.1), WALL_H, Math.max(room.d - 0.06, 0.1));
+    const mat = new THREE.MeshPhongMaterial({ color: col, transparent: true, opacity: 0.80, shininess: 15 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(room.x + room.w / 2, WALL_H / 2, room.z + room.d / 2);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    fp3dScene.add(mesh);
+
+    // Edge lines
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.45 })
+    );
+    mesh.add(edges);
+
+    // Thin floor slab so rooms feel grounded
+    const slab = new THREE.Mesh(
+      new THREE.BoxGeometry(room.w, 0.08, room.d),
+      new THREE.MeshLambertMaterial({ color: col })
+    );
+    slab.position.set(room.x + room.w / 2, -0.005, room.z + room.d / 2);
+    fp3dScene.add(slab);
+
+    fp3dMeshes.push({ mesh, room });
+  });
+
+  // ── Camera & controls ──
+  const diag = Math.sqrt(totalW * totalW + totalD * totalD);
+  const camDist = Math.max(diag * 1.4, 8);
+  fp3dCamera.position.set(cx + camDist * 0.55, camDist * 0.75, cz + camDist * 0.8);
+  fp3dCamera.lookAt(cx, 0, cz);
+
+  fp3dControls = new OrbitControls(fp3dCamera, fp3dRenderer.domElement);
+  fp3dControls.target.set(cx, WALL_H * 0.3, cz);
+  fp3dControls.enableDamping = true; fp3dControls.dampingFactor = 0.07;
+  fp3dControls.minDistance = 2; fp3dControls.maxDistance = camDist * 4;
+  fp3dControls.maxPolarAngle = Math.PI / 1.9;
+  fp3dControls.update();
+
+  // ── Raycaster (pointerup to avoid firing during drag) ──
+  fp3dRaycaster = new THREE.Raycaster();
+  let pointerMoved = false;
+  fp3dRenderer.domElement.addEventListener('pointerdown', () => { pointerMoved = false; });
+  fp3dRenderer.domElement.addEventListener('pointermove', () => { pointerMoved = true; });
+  fp3dRenderer.domElement.addEventListener('pointerup', handleFp3dClick = (e) => {
+    if (pointerMoved) return;
+    const rect = fp3dRenderer.domElement.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    fp3dRaycaster.setFromCamera(new THREE.Vector2(x, y), fp3dCamera);
+    const hits = fp3dRaycaster.intersectObjects(fp3dMeshes.map(m => m.mesh));
+    if (hits.length) { const found = fp3dMeshes.find(m => m.mesh === hits[0].object); if (found) openFpRoomSheet(found.room.name); }
+  });
+
+  // ── Animate ──
+  (function animate() { fp3dAnimFrame = requestAnimationFrame(animate); fp3dControls.update(); fp3dRenderer.render(fp3dScene, fp3dCamera); })();
+
+  // ── Responsive resize ──
+  fp3dResizeObserver = new ResizeObserver(() => {
+    if (!fp3dRenderer || !fp3dCamera) return;
+    const W2 = Math.max(wrap.getBoundingClientRect().width, 280);
+    const H2 = Math.round(W2 * 0.65);
+    wrap.style.height = H2 + 'px';
+    fp3dCamera.aspect = W2 / H2; fp3dCamera.updateProjectionMatrix();
+    fp3dRenderer.setSize(W2, H2);
+  });
+  fp3dResizeObserver.observe(wrap);
+}
+
+// handleFp3dClick is assigned inline above; declare var so lint doesn't complain
+let handleFp3dClick = null;
+
 function saveFpData() {
   try {
-    const payload = { rooms: fpRooms.map(r => ({ label: r.label, color: r.color, linkedSpaceId: r.linkedSpaceId || null })) };
-    localStorage.setItem(FP_KEY, JSON.stringify(payload));
+    localStorage.setItem(FP_KEY, JSON.stringify({ rooms: fpRooms.map(r => ({ name: r.name, x: r.x, z: r.z, w: r.w, d: r.d, color: r.color, linkedSpaceId: r.linkedSpaceId || null })) }));
   } catch(e) {}
 }
 
@@ -2242,15 +2408,22 @@ async function generateFloorplan() {
   const btn = document.getElementById('fp-generate-btn');
   btn.disabled = true;
   btn.innerHTML = '<span>⏳</span><span>AI 分析中…</span>';
-  showLoading('正在生成平面图…');
+  showLoading('正在生成3D户型图…');
   try {
-    const svgText = await callFloorplanVLM();
-    const parsed = extractSVG(svgText);
-    if (!parsed) throw new Error('未能从AI回复中提取SVG，请重试');
-    fpRooms = parseSVGRooms(parsed);
-    renderFloorplanResult(parsed);
+    const raw = await callFloorplanVLM();
+    const data = extractRoomJSON(raw);
+    if (!data?.rooms?.length) throw new Error('AI未返回有效房间数据，请重试');
+    fpRooms = data.rooms.map((r, i) => ({
+      name: r.name || ('房间' + (i + 1)),
+      x: Number(r.x) || 0, z: Number(r.z) || 0,
+      w: Math.max(Number(r.w) || 3, 0.5), d: Math.max(Number(r.d) || 3, 0.5),
+      color: r.color || ROOM_COLORS[i % ROOM_COLORS.length],
+      linkedSpaceId: null
+    }));
     document.getElementById('fp-result-section').style.display = '';
     document.getElementById('fp-save-btn').style.display = '';
+    await buildFloorplan3D(fpRooms);
+    renderFpLegend();
     saveFpData();
   } catch(e) {
     showToast('生成失败：' + (e.message || '请重试'));
@@ -2261,69 +2434,65 @@ async function generateFloorplan() {
   }
 }
 
-async function callFloorplanVLM() {
-  const systemPrompt = `你是室内设计助手。根据用户提供的家庭室内照片，生成一份简洁的SVG户型平面草图。
-规则：
-1. SVG属性：viewBox="0 0 400 300"，不要写width/height属性
-2. 每个房间用一个<rect>表示，必须包含属性 data-room="房间中文名"（如客厅、主卧、次卧、厨房、卫生间、阳台、走廊）
-3. 每个<rect>必须有fill属性，用柔和浅色（如 #FFD6D6 #D6EDFF #D6FFE0 #FFF3D6 等），stroke="#999" stroke-width="1.5"
-4. 每个房间中心用<text>标注中文名，font-size="13" text-anchor="middle" dominant-baseline="middle" fill="#333"
-5. 房间要紧密排列，不要留大片空白
-6. 只返回SVG代码，从<svg开始到</svg>结束，绝对不要有任何其他文字`;
+function extractRoomJSON(text) {
+  // Strip markdown code fences
+  const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+  // Find the outermost JSON object containing "rooms"
+  const match = stripped.match(/\{[\s\S]*"rooms"[\s\S]*\}/);
+  if (match) { try { return JSON.parse(match[0]); } catch(e) {} }
+  try { return JSON.parse(stripped); } catch(e) {}
+  return null;
+}
 
-  const textPart = { type: 'text', text: '请根据以上' + fpPhotos.length + '张照片，生成这个家庭的SVG户型平面草图。' };
+async function callFloorplanVLM() {
+  const systemPrompt = `你是室内设计助手。分析用户提供的家庭室内照片，推断各房间相对位置和尺寸，以JSON格式输出用于3D户型图渲染。
+只输出以下格式的JSON，不要有任何其他文字：
+{"rooms":[{"name":"客厅","x":0,"z":0,"w":5.0,"d":4.0,"color":"#FFD6D6"},{"name":"主卧","x":5.0,"z":0,"w":3.5,"d":3.5,"color":"#D6EDFF"}]}
+字段：name中文房间名，x/z房间左上角坐标(米,从0,0开始)，w宽度，d深度，color浅色HEX不同颜色。相邻房间坐标对齐，不能重叠。`;
+
+  const textPart = { type: 'text', text: `请根据这${fpPhotos.length}张照片生成家庭户型JSON。` };
 
   if (getProvider() === 'qwen') {
-    const msgContent = [
-      ...fpPhotos.map(p => ({
-        type: 'image_url',
-        image_url: { url: p.dataUrl }
-      })),
-      { type: 'text', text: systemPrompt + '\n\n' + textPart.text }
-    ];
     const key = getQwenKey();
     if (!key) throw new Error('请先设置通义千问 API Key');
     const res = await fetch(QWEN_ENDPOINT, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + sanitizeKey(key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: QWEN_MODEL, messages: [{ role: 'user', content: msgContent }], max_tokens: 2000 })
+      body: JSON.stringify({
+        model: QWEN_MODEL,
+        messages: [{ role: 'user', content: [
+          ...fpPhotos.map(p => ({ type: 'image_url', image_url: { url: p.dataUrl } })),
+          { type: 'text', text: systemPrompt + '\n\n' + textPart.text }
+        ]}],
+        max_tokens: 1500
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message || ('HTTP ' + res.status));
     return data.choices?.[0]?.message?.content || '';
   } else {
-    // Claude
+    const apiKey = getApiKey(), apiBase = getApiBase();
+    if (!apiKey) throw new Error('请先设置 Claude API Key');
     const userContent = [
       ...fpPhotos.map(p => {
         const [header, b64] = p.dataUrl.split(',');
-        const mediaType = header.match(/:(.*?);/)[1];
-        return { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } };
+        return { type: 'image', source: { type: 'base64', media_type: header.match(/:(.*?);/)[1], data: b64 } };
       }),
       textPart
     ];
-    const apiKey = getApiKey();
-    const apiBase = getApiBase();
-    if (!apiKey) throw new Error('请先设置 Claude API Key');
-    const isRelay = apiBase && apiBase !== 'https://api.anthropic.com';
+    const isRelay = apiBase !== 'https://api.anthropic.com';
     if (isRelay) {
-      const res = await fetch(apiBase.replace(/\/$/, '') + '/v1/messages', {
+      const res = await fetch(apiBase + '/v1/messages', {
         method: 'POST',
-        headers: {
-          'x-api-key': sanitizeKey(apiKey),
-          'Authorization': 'Bearer ' + sanitizeKey(apiKey),
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-calls': 'true',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, system: systemPrompt, messages: [{ role: 'user', content: userContent }] })
+        headers: { 'x-api-key': sanitizeKey(apiKey), 'Authorization': 'Bearer ' + sanitizeKey(apiKey), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-calls': 'true', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1500, system: systemPrompt, messages: [{ role: 'user', content: userContent }] })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || ('HTTP ' + res.status));
       return data.content?.[0]?.text || '';
     } else {
       const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey, apiBase, systemPrompt, userContent })
       });
       const data = await res.json();
@@ -2331,47 +2500,6 @@ async function callFloorplanVLM() {
       return data.content?.[0]?.text || '';
     }
   }
-}
-
-function extractSVG(text) {
-  // Try code block first
-  const blockMatch = text.match(/```(?:svg)?\s*([\s\S]*?```)/i);
-  if (blockMatch) {
-    const inner = blockMatch[1].replace(/```\s*$/, '').trim();
-    if (inner.includes('<svg')) return inner;
-  }
-  // Try raw SVG tag
-  const rawMatch = text.match(/<svg[\s\S]*<\/svg>/i);
-  if (rawMatch) return rawMatch[0];
-  return null;
-}
-
-function parseSVGRooms(svgText) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svgText, 'image/svg+xml');
-  const rooms = [];
-  const rects = doc.querySelectorAll('rect[data-room]');
-  rects.forEach((rect, i) => {
-    rooms.push({
-      label: rect.getAttribute('data-room') || ('房间' + (i + 1)),
-      color: rect.getAttribute('fill') || ROOM_COLORS[i % ROOM_COLORS.length],
-      linkedSpaceId: null
-    });
-  });
-  return rooms;
-}
-
-function renderFloorplanResult(svgText) {
-  const wrap = document.getElementById('fp-svg-wrap');
-  if (!wrap) return;
-
-  // Inject click handlers: add class and onclick to each rect[data-room]
-  const enriched = svgText.replace(/<rect([^>]*data-room="([^"]*)"[^>]*)>/gi, (match, attrs, roomName) => {
-    return `<rect${attrs} class="fp-room-hit" onclick="openFpRoomSheet('${roomName.replace(/'/g, '&apos;')}')">`;
-  });
-  wrap.innerHTML = enriched;
-
-  renderFpLegend();
 }
 
 function renderFpLegend() {
@@ -2382,16 +2510,16 @@ function renderFpLegend() {
     const linkText = space ? `${space.emoji} ${space.name}` : '点击关联空间';
     return `<div class="fp-legend-row">
       <div class="fp-legend-dot" style="background:${r.color}"></div>
-      <div class="fp-legend-name">${r.label}</div>
-      <div class="fp-legend-link" onclick="openFpRoomSheet('${r.label}')">${linkText}</div>
+      <div class="fp-legend-name">${r.name}</div>
+      <div class="fp-legend-link" onclick="openFpRoomSheet('${r.name.replace(/'/g, "\\'")}')">${linkText}</div>
     </div>`;
   }).join('');
 }
 
-function openFpRoomSheet(roomLabel) {
-  fpCurrentRoom = roomLabel;
-  const room = fpRooms.find(r => r.label === roomLabel);
-  document.getElementById('fp-room-sheet-title').textContent = '「' + roomLabel + '」关联空间';
+function openFpRoomSheet(roomName) {
+  fpCurrentRoom = roomName;
+  const room = fpRooms.find(r => r.name === roomName);
+  document.getElementById('fp-room-sheet-title').textContent = '「' + roomName + '」关联空间';
   const opts = document.getElementById('fp-room-options');
   const spaces = Object.values(state.spaces).filter(s => s.id !== UNORG_ID);
   if (spaces.length === 0) {
@@ -2400,8 +2528,7 @@ function openFpRoomSheet(roomLabel) {
     opts.innerHTML = spaces.map(s => {
       const sel = room?.linkedSpaceId === s.id ? 'selected' : '';
       return `<div class="fp-room-option ${sel}" onclick="linkFpRoom('${s.id}')">
-        <span style="font-size:22px">${s.emoji}</span>
-        <span>${s.name}</span>
+        <span style="font-size:22px">${s.emoji}</span><span>${s.name}</span>
       </div>`;
     }).join('');
   }
@@ -2417,20 +2544,13 @@ function closeFpRoomSheet() {
 
 function linkFpRoom(spaceId) {
   if (!fpCurrentRoom) return;
-  const room = fpRooms.find(r => r.label === fpCurrentRoom);
-  if (room) {
-    room.linkedSpaceId = spaceId;
-    saveFpData();
-    renderFpLegend();
-  }
+  const room = fpRooms.find(r => r.name === fpCurrentRoom);
+  if (room) { room.linkedSpaceId = spaceId; saveFpData(); renderFpLegend(); }
   closeFpRoomSheet();
   showToast('已关联 ' + (state.spaces[spaceId]?.name || ''));
 }
 
-function saveFloorplan() {
-  saveFpData();
-  showToast('✅ 平面图已保存');
-}
+function saveFloorplan() { saveFpData(); showToast('✅ 平面图已保存'); }
 
 // ═══════════════════════════════════════
 // INIT
